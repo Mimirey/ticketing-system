@@ -9,6 +9,7 @@ class TicketCreate(BaseModel):
     description: str = Field(..., min_length=10)
     priority: TicketPriority= TicketPriority.LOW
     module: Optional[str]= None
+    due_date: datetime | None = None
 
 class TicketResponse(BaseModel):
     id: int
@@ -19,6 +20,9 @@ class TicketResponse(BaseModel):
     priority: TicketPriority
     status: TicketStatus
     module: Optional[str]
+    due_date: datetime | None
+    sla_status: str | None = None
+    remaining_hours: float | None = None
     reporter_id: int
     pic_id: Optional[int]
     created_at: datetime
@@ -32,7 +36,7 @@ class TicketAssign(BaseModel):
 
 class TicketStatusUpdate(BaseModel):
     status: TicketStatus
-
-
 class TicketPriorityUpdate(BaseModel):
     priority: TicketPriority
+class TicketDueDateUpdate(BaseModel):
+    due_date: datetime
