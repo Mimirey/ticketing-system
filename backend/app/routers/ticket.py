@@ -75,7 +75,8 @@ def list_tickets(
     search: str | None = Query(None),
     status: TicketStatus | None = Query(None),
     priority: TicketPriority | None = Query(None),
-
+    type: TicketType | None = Query(None),    
+    pic_id: int | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
 
@@ -90,19 +91,27 @@ def list_tickets(
         query = query.filter(
             (Ticket.title.ilike(f"%{search}%")) |
             (Ticket.ticket_number.ilike(f"%{search}%")) |
-            (Ticket.module.ilike(f"%{search}%"))
+            (Ticket.module.ilike(f"%{search}%")) |
+            (User.name.ilike(f"%{search}"))
         )
     if status:
         query = query.filter(Ticket.status == status)
     if priority:
         query = query.filter(Ticket.priority == priority)
+    if type:
+        query = query.filter(Ticket.type == type)
+    if pic_id:
+        query= query.filter(Ticket.pic_id == pic_id)
 
     if current_user.role.name == "USER":
         query = query.filter(Ticket.reporter_id == current_user.id)
     elif current_user.role.name == "STAFF_IT":
         query = query.filter(Ticket.pic_id == current_user.id)
 
-    sort_column = getattr(Ticket, sort_by, Ticket.created_at)
+    SORTABLE_FIELDS ={"created_at", "updated_at", "priority", "status"}
+    sort_field = sort_by if sort_by in SORTABLE_FIELDS else "created_at"
+    sort_column = getattr(Ticket, sort_field)
+
     if order.lower() == "asc":
         query = query.order_by(sort_column.asc())
     else:

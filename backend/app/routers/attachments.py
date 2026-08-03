@@ -133,3 +133,34 @@ def delete_attachment(
 
     attachment.is_deleted = True
     db.commit()
+
+PREVIEWABLE_TYPES ={"images/png", "image/jpeg", "application/pdf"}
+@router.get("/{ticket_id}/attachments/{attachment_id}/preview")
+def preview_attachment(
+    ticket_id: int,
+    attachment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ticket = get_ticket_or_404(ticket_id, db)
+    ensure_ticket_access(current_user, ticket)
+
+    attachment = db.query(Attachment).filter(
+        Attachment.id == attachment_id,
+        Attachment.ticket_id == ticket_id,
+        Attachment.is_deleted == False,
+    ).first()
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment tidak ditemukan")
+
+    if attachment.content_type not in PREVIEWABLE_TYPES:
+        raise HTTPException(status_code=400, detail="Tipe file ini tidak mendukung preview")
+
+    if not os.path.exists(attachment.file_path):
+        raise HTTPException(status_code=404, detail="File fisik tidak ditemukan di server")
+
+    return FileResponse(
+        path=attachment.file_path,
+        media_type=attachment.content_type,
+        content_disposition_type="inline",
+    )
