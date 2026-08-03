@@ -127,13 +127,11 @@ Frontend berjalan di `http://localhost:5173`.
 
 ## Akun Demo
 
-> Isi tabel ini dengan akun yang sudah di-seed di database, agar reviewer bisa langsung login menguji ketiga role.
-
 | Role | Email | Password |
 |---|---|---|
-| User | `user@test.com` | `<isi>` |
-| PM IT | `pmit@test.com` | `<isi>` |
-| Staff IT | `staff@test.com` | `<isi>` |
+| User | `user@test.com` | `123456` |
+| PM IT | `pm@test.com` | `123456` |
+| Staff IT | `staff@test.com` | `123456` |
 
 ## Role & Hak Akses (RBAC)
 
