@@ -127,11 +127,35 @@ Frontend berjalan di `http://localhost:5173`.
 
 ## Akun Demo
 
+Akun berikut otomatis dibuat oleh seed script (`app/db/seed.py`), baik saat dijalankan manual maupun otomatis via Docker Compose.
+
 | Role | Email | Password |
 |---|---|---|
-| User | `user@test.com` | `123456` |
-| PM IT | `pm@test.com` | `123456` |
-| Staff IT | `staff@test.com` | `123456` |
+| User | `user@test.com` | `password123` |
+| PM IT | `pmit@test.com` | `password123` |
+| Staff IT | `staff@test.com` | `password123` |
+
+> Password ini hanya untuk keperluan demo/testing, bukan representasi praktik keamanan produksi.
+
+## Menjalankan dengan Docker (Cara Tercepat)
+
+Cara ini menjalankan database, backend, dan frontend sekaligus tanpa perlu instalasi Python/Node/PostgreSQL manual — cukup Docker Desktop.
+
+```bash
+docker compose up --build
+```
+
+Tunggu hingga backend menampilkan log `Uvicorn running on http://0.0.0.0:8000`, lalu buka:
+- Frontend: `http://localhost:5173`
+- Backend Swagger: `http://localhost:8000/docs`
+
+Database, migration, dan seed data demo (lihat tabel di atas) berjalan otomatis setiap kali container dijalankan.
+
+Untuk menghentikan:
+```bash
+docker compose down        # data tetap tersimpan
+docker compose down -v     # menghapus seluruh data (reset total)
+```
 
 ## Role & Hak Akses (RBAC)
 
