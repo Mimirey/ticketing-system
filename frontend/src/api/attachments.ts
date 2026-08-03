@@ -30,3 +30,11 @@ export const downloadAttachment = async (ticketId: number, attachmentId: number,
   link.click();
   window.URL.revokeObjectURL(url);
 };
+
+export const PREVIEWABLE_TYPES =["image/png", "image/jpeg", "application/pdf"];
+export const getAttachmentPreviewUrl = async (ticketId: number, attachmentId: number)=>{
+    const res = await apiClient.get(`/tickets/${ticketId}/attachments/${attachmentId}/preview`, {
+        responseType: "blob",
+    });
+    return window.URL.createObjectURL(res.data);
+};
