@@ -58,3 +58,22 @@ export const deleteTicket = async (id: number) => {
   const res = await apiClient.delete(`/tickets/${id}`);
   return res.data;
 };
+
+function triggerDownload(blobData: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blobData);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.URL.revokeObjectURL(url);
+}
+
+export const exportTicketsExcel = async () => {
+  const res = await apiClient.get("/tickets/export", { responseType: "blob" });
+  triggerDownload(new Blob([res.data]), "tickets.xlsx");
+};
+
+export const exportTicketsPdf = async () => {
+  const res = await apiClient.get("/tickets/export/pdf", { responseType: "blob" });
+  triggerDownload(new Blob([res.data]), "tickets.pdf");
+};

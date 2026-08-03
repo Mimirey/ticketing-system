@@ -8,7 +8,7 @@ import type {
 } from "../types";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getTickets, deleteTicket } from "../api/ticket";
+import { getTickets, deleteTicket, exportTicketsExcel, exportTicketsPdf } from "../api/ticket";
 import { StatusBadge, PriorityBadge } from "../components/StatusBadge";
 import { getStaffUsers } from "../api/users";
 import ConfirmModal from "../components/ConfirModal";
@@ -54,7 +54,22 @@ export default function TicketList() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isPM = user?.role === "PM_IT";
+  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
 
+  const handleExport = async (type: "excel" | "pdf") => {
+    setExporting(type);
+    try {
+      if (type === "excel") {
+        await exportTicketsExcel();
+      } else {
+        await exportTicketsPdf();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Gagal mengekspor data");
+    } finally {
+      setExporting(null);
+    }
+  };
   const fetchTickets = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -115,12 +130,32 @@ export default function TicketList() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-slate-800">Daftar Ticket</h1>
-        <button
-          onClick={() => navigate("/tickets/new")}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
-        >
-          + Buat Ticket
-        </button>
+        <div className="flex gap-2">
+          {isPM && (
+            <>
+              <button
+                onClick={() => handleExport("excel")}
+                disabled={exporting !== null}
+                className="px-3 py-2 border border-slate-300 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {exporting === "excel" ? "Mengekspor..." : "Export Excel"}
+              </button>
+              <button
+                onClick={() => handleExport("pdf")}
+                disabled={exporting !== null}
+                className="px-3 py-2 border border-slate-300 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {exporting === "pdf" ? "Mengekspor..." : "Export PDF"}
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => navigate("/tickets/new")}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
+          >
+            + Buat Ticket
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 mb-4">
