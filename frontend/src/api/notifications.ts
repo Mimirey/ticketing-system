@@ -10,5 +10,6 @@ export const getUnreadCount = async ()=>{
     return res.data.unread_count
 }
 export const markAsRead = async (notificationId :number)=>{
-    const res= await apiClient.patch<Notification[]>(`/notifications/${notificationId}/read`)
+    const res= await apiClient.patch<Notification[]>(`/notifications/${notificationId}/read`);
+    return res.data;
 }
