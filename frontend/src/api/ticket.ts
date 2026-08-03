@@ -5,6 +5,8 @@ export interface TicketListParams {
   search?: string;
   status?: TicketStatus;
   priority?: TicketPriority;
+  type?: TicketType;
+  pic_id?: number; 
   page?: number;
   page_size?: number;
   sort_by?: string;

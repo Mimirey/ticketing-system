@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  getAttachments,
-  uploadAttachment,
-  deleteAttachment,
-  downloadAttachment,
+  getAttachments, uploadAttachment, deleteAttachment, downloadAttachment, getAttachmentPreviewUrl, PREVIEWABLE_TYPES
 } from "../api/attachments";
 import type { Attachment } from "../types";
+import PreviewModal from "./PreviewModal";
+import ConfirmModal from "./ConfirModal";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -19,7 +18,7 @@ export default function AttachmentSection({ ticketId }: { ticketId: number }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [preview, setPreview] = useState<{ url: string; type: string; filename: string } | null>(null);
   const fetchAttachments = async () => {
     setLoading(true);
     try {
@@ -32,11 +31,17 @@ export default function AttachmentSection({ ticketId }: { ticketId: number }) {
   useEffect(() => {
     fetchAttachments();
   }, [ticketId]);
+  const [attachmentToDelete, setAttachmentToDelete] = useState<Attachment | null>(null);
+    const confirmDeleteAttachment = async () => {
+    if (!attachmentToDelete) return;
+    await deleteAttachment(ticketId, attachmentToDelete.id);
+    setAttachmentToDelete(null);
+    fetchAttachments();
+    };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setError(null);
     setUploading(true);
     try {
@@ -49,12 +54,14 @@ export default function AttachmentSection({ ticketId }: { ticketId: number }) {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
-  const handleDelete = async (attachmentId: number) => {
-    if (!confirm("Hapus lampiran ini?")) return;
-    await deleteAttachment(ticketId, attachmentId);
-    fetchAttachments();
+  const handlePreview = async (a: Attachment) => {
+    const url = await getAttachmentPreviewUrl(ticketId, a.id);
+    setPreview({ url, type: a.content_type, filename: a.original_filename });
   };
-
+  const closePreview = () => {
+    if (preview) window.URL.revokeObjectURL(preview.url);
+    setPreview(null);
+  };
   return (
     <div>
       <div className="mb-4">
@@ -93,6 +100,11 @@ export default function AttachmentSection({ ticketId }: { ticketId: number }) {
                 </p>
               </div>
               <div className="flex gap-3">
+                {PREVIEWABLE_TYPES.includes(a.content_type) && (
+                  <button onClick={() => handlePreview(a)} className="text-xs text-slate-600 font-medium hover:text-slate-800">
+                    Preview
+                  </button>
+                )}
                 <button
                   onClick={() =>
                     downloadAttachment(ticketId, a.id, a.original_filename)
@@ -102,7 +114,7 @@ export default function AttachmentSection({ ticketId }: { ticketId: number }) {
                   Unduh
                 </button>
                 <button
-                  onClick={() => handleDelete(a.id)}
+                  onClick={() => setAttachmentToDelete(a)}
                   className="text-xs text-red-600 font-medium"
                 >
                   Hapus
@@ -112,6 +124,22 @@ export default function AttachmentSection({ ticketId }: { ticketId: number }) {
           ))}
         </div>
       )}
+      {preview && (
+        <PreviewModal
+          url={preview.url}
+          contentType={preview.type}
+          filename={preview.filename}
+          onClose={closePreview}
+        />
+      )}
+      {attachmentToDelete && (
+        <ConfirmModal
+            title="Hapus Lampiran"
+            message={`Yakin ingin menghapus "${attachmentToDelete.original_filename}"?`}
+            onConfirm={confirmDeleteAttachment}
+            onCancel={() => setAttachmentToDelete(null)}
+        />
+        )}
     </div>
   );
 }
