@@ -131,9 +131,9 @@ Akun berikut otomatis dibuat oleh seed script (`app/db/seed.py`), baik saat dija
 
 | Role | Email | Password |
 |---|---|---|
-| User | `user@test.com` | `password123` |
-| PM IT | `pmit@test.com` | `password123` |
-| Staff IT | `staff@test.com` | `password123` |
+| User | `user@test.com` | `123456` |
+| PM IT | `pm@test.com` | `123456` |
+| Staff IT | `staff@test.com` | `123456` |
 
 > Password ini hanya untuk keperluan demo/testing, bukan representasi praktik keamanan produksi.
 
