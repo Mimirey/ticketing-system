@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, Enum as SQLEnum, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy import DateTime
@@ -17,7 +17,7 @@ class Ticket(Base):
     priority = Column(SQLEnum(TicketPriority), nullable=False, default=TicketPriority.LOW)
     status = Column(SQLEnum(TicketStatus), nullable=False, default=TicketStatus.OPEN)
     module = Column(String(100), nullable=True)
-
+    due_date = Column(DateTime(timezone=True), nullable=True)
     reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     pic_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
