@@ -7,6 +7,7 @@ import {
   updateComment,
 } from "../api/comments";
 import type { Comment } from "../types";
+import ConfirmModal from "./ConfirModal";
 
 export default function CommentSection({ ticketId }: { ticketId: number }) {
   const [comments, setComments] = useState<Comment[]>([]);
@@ -42,11 +43,13 @@ export default function CommentSection({ ticketId }: { ticketId: number }) {
     setEditingId(null);
     fetchComments();
   };
-  const handleDelete = async (commentId: number) => {
-    if (!confirm("Hapus komentar ini?")) return;
-    await deleteComment(ticketId, commentId);
-    fetchComments();
-  };
+  const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
+const confirmDeleteComment = async () => {
+  if (commentToDelete === null) return;
+  await deleteComment(ticketId, commentToDelete);
+  setCommentToDelete(null);
+  fetchComments();
+};
 
   return (
     <div>
@@ -126,7 +129,7 @@ export default function CommentSection({ ticketId }: { ticketId: number }) {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(c.id)}
+                          onClick={() => setCommentToDelete(c.id)}
                           className="text-xs text-slate-500 hover:text-red-600"
                         >
                           Hapus
@@ -140,6 +143,14 @@ export default function CommentSection({ ticketId }: { ticketId: number }) {
           })}
         </div>
       )}
+      {commentToDelete !== null && (
+        <ConfirmModal
+            title="Hapus Komentar"
+            message="Yakin ingin menghapus komentar ini?"
+            onConfirm={confirmDeleteComment}
+            onCancel={() => setCommentToDelete(null)}
+        />
+        )}
     </div>
   );
 }

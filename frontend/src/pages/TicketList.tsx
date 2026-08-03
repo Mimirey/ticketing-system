@@ -1,9 +1,17 @@
 import { useCallback, useState, useEffect } from "react";
-import type { TicketPriority, Ticket, TicketStatus } from "../types";
+import type {
+  TicketPriority,
+  Ticket,
+  TicketStatus,
+  TicketType,
+  User,
+} from "../types";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getTickets } from "../api/ticket";
+import { getTickets, deleteTicket } from "../api/ticket";
 import { StatusBadge, PriorityBadge } from "../components/StatusBadge";
+import { getStaffUsers } from "../api/users";
+import ConfirmModal from "../components/ConfirModal";
 
 const STATUS_OPTIONS: TicketStatus[] = [
   "Open",
@@ -18,48 +26,91 @@ const PRIORITY_OPTIONS: TicketPriority[] = [
   "High",
   "Critical",
 ];
+const TYPE_OPTIONS: TicketType[] = ["Bug", "Feature Request"];
+const SORT_OPTIONS = [
+  { value: "created_at", label: "Tanggal Dibuat" },
+  { value: "updated_at", label: "Tanggal Diubah" },
+  { value: "priority", label: "Prioritas" },
+  { value: "status", label: "Status" },
+];
 const PAGE_SIZE = 10;
 
 export default function TicketList() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<TicketStatus | "">("");
-
+  const [error, setError] = useState<string | null>(null);
+  const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<TicketStatus | "">("");
   const [priority, setPriority] = useState<TicketPriority | "">("");
+  const [type, setType] = useState<TicketType | "">("");
+  const [picId, setPicId] = useState<string>("");
+  const [sortBy, setSortBy] = useState("created_at");
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
+
+  const [staffList, setStaffList] = useState<User[]>([]);
 
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isPM = user?.role === "PM_IT";
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
-    // setError(null);
+    setError(null);
     try {
       const data = await getTickets({
         search: search || undefined,
         status: status || undefined,
         priority: priority || undefined,
+        type: type || undefined,
+        pic_id: picId ? Number(picId) : undefined,
+        sort_by: sortBy,
+        order,
         page,
         page_size: PAGE_SIZE,
       });
       setTickets(data);
-    } catch (err) {
-      // setError("Gagal memuat daftar ticket");
+    } catch {
+      setError("Gagal memuat daftar ticket");
     } finally {
       setLoading(false);
     }
-  }, [search, status, priority, page]);
+  }, [search, status, priority, type, picId, sortBy, order, page]);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      fetchTickets();
-    }, 400);
+    const timeout = setTimeout(fetchTickets, 400);
     return () => clearTimeout(timeout);
   }, [fetchTickets]);
 
+  useEffect(() => {
+    if (isPM) getStaffUsers().then(setStaffList);
+  }, [isPM]);
+
   const resetToFirstPage = () => setPage(1);
+
+  const handleDeleteClick = (e: React.MouseEvent, ticket: Ticket) => {
+    e.stopPropagation();
+    setTicketToDelete(ticket);
+  };
+
+  const confirmDelete = async () => {
+    if (!ticketToDelete) return;
+    try {
+      await deleteTicket(ticketToDelete.id);
+      fetchTickets();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Gagal menghapus ticket");
+    } finally {
+      setTicketToDelete(null);
+    }
+  };
+
+  const canDelete = (ticket: Ticket) => {
+    if (ticket.status === "Done") return false;
+    return isPM || ticket.reporter_id === user?.id;
+  };
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -72,16 +123,16 @@ export default function TicketList() {
         </button>
       </div>
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-4">
         <input
           type="text"
-          placeholder="Cari nomor ticket, judul, atau modul..."
+          placeholder="Cari nomor ticket, judul, atau pelapor..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
             resetToFirstPage();
           }}
-          className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-md text-sm"
         />
         <select
           value={status}
@@ -93,7 +144,9 @@ export default function TicketList() {
         >
           <option value="">Semua Status</option>
           {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>
+              {s}
+            </option>
           ))}
         </select>
         <select
@@ -106,13 +159,69 @@ export default function TicketList() {
         >
           <option value="">Semua Prioritas</option>
           {PRIORITY_OPTIONS.map((p) => (
-            <option key={p} value={p}>{p}</option>
+            <option key={p} value={p}>
+              {p}
+            </option>
           ))}
         </select>
+        <select
+          value={type}
+          onChange={(e) => {
+            setType(e.target.value as TicketType | "");
+            resetToFirstPage();
+          }}
+          className="px-3 py-2 border border-slate-300 rounded-md text-sm"
+        >
+          <option value="">Semua Jenis</option>
+          {TYPE_OPTIONS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+
+        {isPM && (
+          <select
+            value={picId}
+            onChange={(e) => {
+              setPicId(e.target.value);
+              resetToFirstPage();
+            }}
+            className="px-3 py-2 border border-slate-300 rounded-md text-sm"
+          >
+            <option value="">Semua PIC</option>
+            {staffList.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="px-3 py-2 border border-slate-300 rounded-md text-sm"
+        >
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              Urutkan: {o.label}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+          className="px-3 py-2 border border-slate-300 rounded-md text-sm"
+          title="Ubah arah urutan"
+        >
+          {order === "asc" ? "↑ Naik" : "↓ Turun"}
+        </button>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded">{error}</div>
+        <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded">
+          {error}
+        </div>
       )}
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
@@ -124,18 +233,25 @@ export default function TicketList() {
               <th className="px-4 py-3 font-medium">Tipe</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Prioritas</th>
+              <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                <td
+                  colSpan={6}
+                  className="px-4 py-8 text-center text-slate-400"
+                >
                   Memuat...
                 </td>
               </tr>
             ) : tickets.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                <td
+                  colSpan={6}
+                  className="px-4 py-8 text-center text-slate-400"
+                >
                   Tidak ada ticket ditemukan
                 </td>
               </tr>
@@ -146,11 +262,27 @@ export default function TicketList() {
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
                   className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer"
                 >
-                  <td className="px-4 py-3 font-medium text-slate-700">{ticket.ticket_number}</td>
+                  <td className="px-4 py-3 font-medium text-slate-700">
+                    {ticket.ticket_number}
+                  </td>
                   <td className="px-4 py-3 text-slate-600">{ticket.title}</td>
                   <td className="px-4 py-3 text-slate-500">{ticket.type}</td>
-                  <td className="px-4 py-3"><StatusBadge status={ticket.status} /></td>
-                  <td className="px-4 py-3"><PriorityBadge priority={ticket.priority} /></td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={ticket.status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <PriorityBadge priority={ticket.priority} />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {canDelete(ticket) && (
+                      <button
+                        onClick={(e) => handleDeleteClick(e, ticket)}
+                        className="text-xs text-red-600 hover:text-red-700 font-medium"
+                      >
+                        Hapus
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))
             )}
@@ -177,6 +309,14 @@ export default function TicketList() {
           </button>
         </div>
       </div>
+      {ticketToDelete && (
+        <ConfirmModal
+          title="Hapus Ticket"
+          message={`Yakin ingin menghapus ticket ${ticketToDelete.ticket_number}? Aksi ini tidak dapat dibatalkan.`}
+          onConfirm={confirmDelete}
+          onCancel={() => setTicketToDelete(null)}
+        />
+      )}
     </div>
   );
 }
