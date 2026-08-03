@@ -12,63 +12,54 @@ def get_dashboard_statistics(
 ):
     query = db.query(
         func.count(Ticket.id).label("total_ticket"),
-
         func.sum(
             case(
                 (Ticket.status == TicketStatus.OPEN, 1),
                 else_=0,
             )
         ).label("open_ticket"),
-
         func.sum(
             case(
                 (Ticket.status == TicketStatus.ASSIGNED, 1),
                 else_=0,
             )
         ).label("assigned_ticket"),
-
         func.sum(
             case(
                 (Ticket.status == TicketStatus.IN_PROGRESS, 1),
                 else_=0,
             )
         ).label("in_progress_ticket"),
-
         func.sum(
             case(
                 (Ticket.status == TicketStatus.QA, 1),
                 else_=0,
             )
         ).label("qa_ticket"),
-
         func.sum(
             case(
                 (Ticket.status == TicketStatus.DONE, 1),
                 else_=0,
             )
         ).label("done_ticket"),
-
         func.sum(
             case(
                 (Ticket.priority == TicketPriority.CRITICAL, 1),
                 else_=0,
             )
         ).label("critical_priority_ticket"),
-
         func.sum(
             case(
                 (Ticket.priority == TicketPriority.HIGH, 1),
                 else_=0,
             )
         ).label("high_priority_ticket"),
-
         func.sum(
             case(
                 (Ticket.priority == TicketPriority.MEDIUM, 1),
                 else_=0,
             )
         ).label("medium_priority_ticket"),
-
         func.sum(
             case(
                 (Ticket.priority == TicketPriority.LOW, 1),

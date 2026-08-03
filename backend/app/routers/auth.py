@@ -18,13 +18,11 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         .filter(User.email == data.email, User.is_deleted == False)
         .first()
     )
-
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email atau password salah",
         )
-
     token = create_access_token(
         data={"sub": str(user.id), "role": user.role.name}
     )
@@ -32,6 +30,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     db.commit()
     return LoginResponse(
         access_token=token,
+        id=user.id,
         role=user.role.name,
         name=user.name,
     )
