@@ -22,7 +22,6 @@ def dashboard_statistics(
         critical_priority_ticket=stats.critical_priority_ticket or 0,
     )
 
-
 def dashboard_status_chart(
     db: Session,
     current_user: User,
@@ -36,7 +35,6 @@ def dashboard_status_chart(
         )
         for item in data
     ]
-
 
 def dashboard_priority_chart(
     db: Session,
