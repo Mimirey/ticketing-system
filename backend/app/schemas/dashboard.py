@@ -8,6 +8,7 @@ class DashboardStatisticResponse(BaseModel):
     in_progress_ticket: int
     qa_ticket: int
     done_ticket: int
+    overdue_ticket: int
     high_priority_ticket: int
     medium_priority_ticket: int
     low_priority_ticket: int

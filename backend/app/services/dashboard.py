@@ -16,6 +16,7 @@ def dashboard_statistics(
         in_progress_ticket=stats.in_progress_ticket or 0,
         qa_ticket=stats.qa_ticket or 0,
         done_ticket=stats.done_ticket or 0,
+        overdue_ticket=stats.overdue_ticket or 0,
         high_priority_ticket=stats.high_priority_ticket or 0,
         medium_priority_ticket=stats.medium_priority_ticket or 0,
         low_priority_ticket=stats.low_priority_ticket or 0,
