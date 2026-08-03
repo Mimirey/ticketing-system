@@ -1,20 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
-
+from app.services.export_excel import export_ticket_excel
+from app.services.export_pdf import export_ticket_pdf
+from app.services.sla import calculate_sla
 from app.db.database import get_db
 from app.core.dependencies import get_current_user, require_role
 from app.core.ticket_utils import generate_ticket_number
 from app.core.activity_log_utils import log_activity
 from app.models.user import User
 from app.models.ticket import Ticket
-from app.models.enums import TicketStatus, TicketPriority
+from app.models.enums import TicketStatus, TicketPriority, TicketType
 from app.models.ticket_history import TicketHistory
 from app.schemas.ticket_history import TicketHistoryResponse
 from app.core.history_utils import log_history
 from app.core.notification_utils import create_notification
 from app.schemas.ticket import (
-    TicketCreate, TicketResponse, TicketAssign, TicketStatusUpdate, TicketPriorityUpdate,
+    TicketCreate, TicketResponse, TicketAssign, TicketStatusUpdate, TicketPriorityUpdate, TicketDueDateUpdate
 )
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
@@ -41,6 +44,7 @@ def create_ticket(
         description=data.description,
         priority=data.priority,
         module=data.module,
+        due_date=data.due_date,
         status=TicketStatus.OPEN,
         reporter_id=current_user.id,
     )
@@ -67,6 +71,10 @@ def create_ticket(
         )
     log_activity(db, current_user.id, "CREATE_TICKET", f"{current_user.name} membuat ticket {ticket.ticket_number}")
     db.commit()
+
+    sla=calculate_sla(ticket)
+    ticket.sla_status = sla["sla_status"]
+    ticket.remaining_hours = sla["remaining_hours"]
     return ticket
 
 
@@ -124,9 +132,51 @@ def list_tickets(
         .limit(page_size)
         .all()
     )
-
+    for ticket in tickets:
+        sla = calculate_sla(ticket)
+        ticket.sla_status = sla["sla_status"]
+        ticket.remaining_hours = sla["remaining_hours"]
     return tickets
+@router.get("/export")
+def export_excel(
+    current_user: User = Depends(require_role("PM_IT")),
+    db: Session = Depends(get_db),
+):
+    tickets = (
+        db.query(Ticket)
+        .filter(Ticket.is_deleted == False)
+        .all()
+    )
 
+    excel = export_ticket_excel(tickets)
+
+    return StreamingResponse(
+        excel,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": "attachment; filename=tickets.xlsx"
+        },
+    )
+@router.get("/export/pdf")
+def export_pdf(
+    current_user: User = Depends(require_role("PM_IT")),
+    db: Session = Depends(get_db),
+):
+    tickets = (
+        db.query(Ticket)
+        .filter(Ticket.is_deleted == False)
+        .all()
+    )
+
+    pdf = export_ticket_pdf(tickets)
+
+    return StreamingResponse(
+        pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": "attachment; filename=tickets.pdf"
+        },
+    )
 
 @router.get("/{ticket_id}", response_model=TicketResponse)
 def get_ticket(
@@ -143,7 +193,9 @@ def get_ticket(
 
     if current_user.role.name == "USER" and ticket.reporter_id != current_user.id:
         raise HTTPException(status_code=403, detail="Kamu tidak punya akses ke ticket ini")
-
+    sla = calculate_sla(ticket)
+    ticket.sla_status = sla["sla_status"]
+    ticket.remaining_hours = sla["remaining_hours"]
     return ticket
 
 
@@ -312,3 +364,28 @@ def delete_ticket(
     return {
         "message": "Ticket berhasil dihapus"
     }
+@router.patch("/{ticket_id}/due-date", response_model=TicketResponse)
+def update_due_date(
+    ticket_id: int,
+    data: TicketDueDateUpdate,
+    current_user: User = Depends(require_role("PM_IT")),
+    db: Session = Depends(get_db),
+):
+    ticket = (
+        db.query(Ticket)
+        .filter(
+            Ticket.id == ticket_id,
+            Ticket.is_deleted == False,
+        )
+        .first()
+    )
+
+    if not ticket:
+        raise HTTPException(404, "Ticket tidak ditemukan")
+
+    ticket.due_date = data.due_date
+
+    db.commit()
+    db.refresh(ticket)
+
+    return ticket

@@ -66,10 +66,19 @@ def get_dashboard_statistics(
                 else_=0,
             )
         ).label("low_priority_ticket"),
+        func.sum(
+                case(
+                    (
+                        Ticket.due_date < func.now(),
+                        1
+                    ),
+                    else_=0,
+                )
+            ).label("overdue_ticket"),
     )
 
     query = query.filter(Ticket.is_deleted == False)
-
+    
     if current_user.role.name == "USER":
         query = query.filter(Ticket.reporter_id == current_user.id)
 
