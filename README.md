@@ -53,6 +53,26 @@ Aplikasi web Ticketing System untuk mengelola pelaporan Bug dan Feature Request 
 - Node.js 18+
 - PostgreSQL 14+
 
+## Menjalankan dengan Docker (Cara Tercepat)
+
+Cara ini menjalankan database, backend, dan frontend sekaligus tanpa perlu instalasi Python/Node/PostgreSQL manual — cukup Docker Desktop.
+
+```bash
+docker compose up --build
+```
+
+Tunggu hingga backend menampilkan log `Uvicorn running on http://0.0.0.0:8000`, lalu buka:
+- Frontend: `http://localhost:5173`
+- Backend Swagger: `http://localhost:8000/docs`
+
+Database, migration, dan seed data demo (lihat tabel di atas) berjalan otomatis setiap kali container dijalankan.
+
+Untuk menghentikan:
+```bash
+docker compose down        # data tetap tersimpan
+docker compose down -v     # menghapus seluruh data (reset total)
+```
+
 ## Instalasi & Menjalankan — Backend
 
 ```bash
@@ -136,26 +156,6 @@ Akun berikut otomatis dibuat oleh seed script (`app/db/seed.py`), baik saat dija
 | Staff IT | `staff@test.com` | `123456` |
 
 > Password ini hanya untuk keperluan demo/testing, bukan representasi praktik keamanan produksi.
-
-## Menjalankan dengan Docker (Cara Tercepat)
-
-Cara ini menjalankan database, backend, dan frontend sekaligus tanpa perlu instalasi Python/Node/PostgreSQL manual — cukup Docker Desktop.
-
-```bash
-docker compose up --build
-```
-
-Tunggu hingga backend menampilkan log `Uvicorn running on http://0.0.0.0:8000`, lalu buka:
-- Frontend: `http://localhost:5173`
-- Backend Swagger: `http://localhost:8000/docs`
-
-Database, migration, dan seed data demo (lihat tabel di atas) berjalan otomatis setiap kali container dijalankan.
-
-Untuk menghentikan:
-```bash
-docker compose down        # data tetap tersimpan
-docker compose down -v     # menghapus seluruh data (reset total)
-```
 
 ## Role & Hak Akses (RBAC)
 
