@@ -38,6 +38,7 @@ def create_ticket(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    
     ticket = Ticket(
         type=data.type,
         title=data.title,

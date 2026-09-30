@@ -6,3 +6,5 @@ from app.models.comment import Comment
 from app.models.attachment import Attachment
 from app.models.notification import Notification
 from app.models.activity_log import ActivityLog
+from app.models.company import Company
+from app.models.application import Application

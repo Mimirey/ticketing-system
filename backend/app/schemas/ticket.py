@@ -10,6 +10,8 @@ class TicketCreate(BaseModel):
     priority: TicketPriority= TicketPriority.LOW
     module: Optional[str]= None
     due_date: datetime | None = None
+    company_id:int
+    application_id:int
 
 class TicketResponse(BaseModel):
     id: int
@@ -32,8 +34,6 @@ class TicketResponse(BaseModel):
         from_attributes= True
 class TicketAssign(BaseModel):
     pic_id: int
-
-
 class TicketStatusUpdate(BaseModel):
     status: TicketStatus
 class TicketPriorityUpdate(BaseModel):
