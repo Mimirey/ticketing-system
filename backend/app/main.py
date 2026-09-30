@@ -13,6 +13,8 @@ from app.routers import (
     dashboard,
     notification,
     activity_log,
+    application,
+    company
 )
 
 app = FastAPI(
@@ -41,6 +43,8 @@ app.include_router(attachments.router)
 app.include_router(dashboard.router)
 app.include_router(notification.router)
 app.include_router(activity_log.router)
+app.include_router(company.router)
+app.include_router(application.router)
 
 @app.get("/")
 def root():

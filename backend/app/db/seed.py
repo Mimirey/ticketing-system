@@ -6,9 +6,9 @@ from app.core.security import hash_password
 ROLES = ["USER", "PM_IT", "STAFF_IT"]
 
 DEMO_USERS = [
-    {"name": "Demo User", "email": "user@test.com", "password": "password123", "role": "USER"},
-    {"name": "Demo PM IT", "email": "pmit@test.com", "password": "password123", "role": "PM_IT"},
-    {"name": "Demo Staff IT", "email": "staff@test.com", "password": "password123", "role": "STAFF_IT"},
+    {"name": "Demo User", "email": "user@test.com", "password": "123456", "role": "USER"},
+    {"name": "Demo PM IT", "email": "pm@test.com", "password": "123456", "role": "PM_IT"},
+    {"name": "Demo Staff IT", "email": "staff@test.com", "password": "123456", "role": "STAFF_IT"},
 ]
 
 def seed():

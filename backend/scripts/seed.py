@@ -10,18 +10,21 @@ users = [
         "name": "Demo User",
         "email": "user@test.com",
         "password": "123456",
+        "username":"user",
         "role": "USER",
     },
     {
         "name": "Demo PM",
         "email": "pm@test.com",
         "password": "123456",
+        "username": "pm",
         "role": "PM_IT",
     },
     {
         "name": "Demo Staff",
         "email": "staff@test.com",
         "password": "123456",
+        "username": "staff",
         "role": "STAFF_IT",
     },
 ]
@@ -40,10 +43,13 @@ try:
             print(f"Role {item['role']} tidak ditemukan.")
             continue
 
+        
+
         user = User(
             name=item["name"],
             email=item["email"],
             password_hash=hash_password(item["password"]),
+            username=item["username"],
             role_id=role.id,
         )
 

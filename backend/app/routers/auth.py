@@ -1,6 +1,7 @@
 # app/routers/auth.py
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from app.core.limiter import limiter
 from app.db.database import get_db
 from app.core.security import verify_password, create_access_token, create_refresh_token, decode_refresh_token
@@ -16,13 +17,20 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 def login(data: LoginRequest, request: Request ,db: Session = Depends(get_db)):
     user = (
         db.query(User)
-        .filter(User.email == data.email, User.is_deleted == False)
+        .filter(
+           or_(
+               User.email == data.identifier,
+               User.username == data.identifier
+           ), 
+            User.is_deleted == False,
+            User.is_active == True
+            )
         .first()
     )
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email atau password salah",
+            detail="Username/email atau password salah",
         )
     token = create_access_token(
         data={"sub": str(user.id), "role": user.role.name}
@@ -41,7 +49,7 @@ def login(data: LoginRequest, request: Request ,db: Session = Depends(get_db)):
         name=user.name,
     )
 
-@router.post("/refresh", response_model=LoginResponse)
+@router.post("/refresh", response_model=TokenResponse)
 @limiter.limit("10/minute")
 def refresh_access_token(data: RefreshTokenRequest, request: Request):
     payload = decode_refresh_token(data.refresh_token)
@@ -60,5 +68,5 @@ def refresh_access_token(data: RefreshTokenRequest, request: Request):
     )
     return TokenResponse(
         access_token=new_access_token,
-        refresh_access_token=data.refresh_token
+        refresh_token=data.refresh_token
     )
