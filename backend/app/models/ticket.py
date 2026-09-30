@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, Enum as SQLEnum, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy import DateTime
 
 from app.db.database import Base
 from app.models.enums import TicketType, TicketPriority, TicketStatus
@@ -20,6 +19,8 @@ class Ticket(Base):
     due_date = Column(DateTime(timezone=True), nullable=True)
     reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     pic_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    company_id=Column(Integer, ForeignKey("companies.id"), nullable=True)
+    application_id= Column(Integer,ForeignKey("applications.id"), nullable=True)
 
     is_deleted = Column(Boolean, default=False, nullable=False)
 
@@ -28,3 +29,5 @@ class Ticket(Base):
 
     reporter = relationship("User", foreign_keys=[reporter_id], backref="tickets_reported")
     pic = relationship("User", foreign_keys=[pic_id], backref="tickets_assigned")
+    company= relationship("Company", backref="tickets")
+    application= relationship("Application", back_populates="tickets")
