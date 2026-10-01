@@ -1,32 +1,54 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { loginRequest, type AuthUser, type LoginPayload } from '@/api/auth'
 
-export interface User {
-  id: number
-  name: string
-  username: string
+const STORAGE_KEY = 'auth'
+
+interface StoredAuth {
+  accessToken: string
+  refreshToken: string
+  user: AuthUser
+}
+
+function loadStored(): StoredAuth | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as StoredAuth) : null
+  } catch {
+    return null
+  }
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(null)
-  const token = ref<string | null>(null)
-  const isAuthenticated = computed(() => !!token.value)
+  const stored = loadStored()
 
-  async function login(username: string, password: string): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 800))
+  const accessToken = ref<string | null>(stored?.accessToken ?? null)
+  const refreshToken = ref<string | null>(stored?.refreshToken ?? null)
+  const user = ref<AuthUser | null>(stored?.user ?? null)
+  const isAuthenticated = computed(() => !!accessToken.value)
 
-    if (password !== 'password123') {
-      throw new Error('Username atau password salah')
-    }
+  async function login(payload: LoginPayload): Promise<void> {
+    const result = await loginRequest(payload)
+    accessToken.value = result.accessToken
+    refreshToken.value = result.refreshToken
+    user.value = result.user
 
-    token.value = 'mock-token'
-    user.value = { id: 1, name: 'Demo User', username }
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: result.user,
+      } satisfies StoredAuth),
+    )
   }
 
   function logout(): void {
-    token.value = null
+    accessToken.value = null
+    refreshToken.value = null
     user.value = null
+    localStorage.removeItem(STORAGE_KEY)
   }
 
-  return { user, token, isAuthenticated, login, logout }
+  return { user, accessToken, refreshToken, isAuthenticated, login, logout }
 })

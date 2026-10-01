@@ -6,9 +6,9 @@ from app.core.security import hash_password
 ROLES = ["USER", "PM_IT", "STAFF_IT"]
 
 DEMO_USERS = [
-    {"name": "Demo User", "email": "user@test.com", "password": "123456", "role": "USER"},
-    {"name": "Demo PM IT", "email": "pm@test.com", "password": "123456", "role": "PM_IT"},
-    {"name": "Demo Staff IT", "email": "staff@test.com", "password": "123456", "role": "STAFF_IT"},
+    {"name": "Demo User", "username": "user", "email": "user@test.com", "password": "123456", "role": "USER"},
+    {"name": "Demo PM IT", "username": "pm", "email": "pm@test.com", "password": "123456", "role": "PM_IT"},
+    {"name": "Demo Staff IT", "username": "staff", "email": "staff@test.com", "password": "123456", "role": "STAFF_IT"},
 ]
 
 def seed():
@@ -27,9 +27,13 @@ def seed():
         for u in DEMO_USERS:
             exists = db.query(User).filter(User.email == u["email"]).first()
             if exists:
+                # isi username untuk akun lama yang belum punya
+                if not exists.username:
+                    exists.username = u["username"]
                 continue
             db.add(User(
                 name=u["name"],
+                username=u["username"],
                 email=u["email"],
                 password_hash=hash_password(u["password"]),
                 role_id=role_map[u["role"]].id,

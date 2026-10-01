@@ -1,31 +1,44 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
+import CaptchaField from '@/components/CaptchaField.vue'
+import { getErrorMessage } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
 
-const form = reactive({ username: '', password: '' })
-const errors = reactive({ username: '', password: '' })
+const form = reactive({ username: '', password: '', captchaId: '', captchaAnswer: '' })
+const errors = reactive({ username: '', password: '', captcha: '' })
 const submitError = ref('')
 const loading = ref(false)
 
-// Ref ke komponen InputText, elemen <input>-nya ada di $el
 const usernameRef = ref<{ $el: HTMLInputElement } | null>(null)
+const captchaRef = ref<InstanceType<typeof CaptchaField> | null>(null)
 
 onMounted(() => {
-  usernameRef.value?.$el.focus()
+  usernameRef.value?.$el?.focus()
 })
+
+// Hapus pesan error begitu pengguna mengubah isi field
+watch(() => form.username, () => (errors.username = ''))
+watch(() => form.password, () => (errors.password = ''))
+watch(() => form.captchaAnswer, () => (errors.captcha = ''))
 
 function validate(): boolean {
   errors.username = form.username.trim() ? '' : 'Username wajib diisi'
   errors.password = form.password ? '' : 'Password wajib diisi'
-  return !errors.username && !errors.password
+
+  const answer = form.captchaAnswer.trim()
+  if (!answer) errors.captcha = 'Jawaban captcha wajib diisi'
+  else if (!/^\d+$/.test(answer)) errors.captcha = 'Jawaban harus berupa angka'
+  else errors.captcha = ''
+
+  return !errors.username && !errors.password && !errors.captcha
 }
 
 async function onSubmit() {
@@ -34,10 +47,16 @@ async function onSubmit() {
 
   loading.value = true
   try {
-    await auth.login(form.username.trim(), form.password)
+    await auth.login({
+      identifier: form.username.trim(), // nama field di API backend
+      password: form.password,
+      captchaId: form.captchaId,
+      captchaAnswer: Number(form.captchaAnswer),
+    })
     router.push({ name: 'dashboard' })
   } catch (e) {
-    submitError.value = e instanceof Error ? e.message : 'Terjadi kesalahan'
+    submitError.value = getErrorMessage(e, 'Login gagal')
+    captchaRef.value?.refresh()
   } finally {
     loading.value = false
   }
@@ -96,6 +115,13 @@ async function onSubmit() {
             {{ errors.password }}
           </Message>
         </div>
+
+        <CaptchaField
+          ref="captchaRef"
+          v-model:captcha-id="form.captchaId"
+          v-model:answer="form.captchaAnswer"
+          :error="errors.captcha"
+        />
 
         <Button type="submit" label="Masuk" size="small" :loading="loading" fluid />
       </form>
