@@ -23,6 +23,10 @@ class TicketResponse(BaseModel):
     status: TicketStatus
     module: Optional[str]
     due_date: datetime | None
+
+    company_id: int | None = None
+    application_id: int | None = None   
+
     sla_status: str | None = None
     remaining_hours: float | None = None
     reporter_id: int

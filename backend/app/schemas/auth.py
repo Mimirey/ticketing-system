@@ -1,9 +1,14 @@
 # app/schemas/auth.py
 from pydantic import BaseModel, EmailStr
+class CaptchaResponse(BaseModel):
+    captcha_id:str
+    question: str
 
 class LoginRequest(BaseModel):
     identifier: str
     password: str
+    captcha_id: str
+    captcha_answer:int
 
 class LoginResponse(BaseModel):
     access_token: str
