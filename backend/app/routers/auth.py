@@ -7,7 +7,8 @@ from app.db.database import get_db
 from app.core.security import verify_password, create_access_token, create_refresh_token, decode_refresh_token
 from app.core.activity_log_utils import log_activity
 from app.models.user import User
-from app.schemas.auth import LoginRequest, LoginResponse, TokenResponse, RefreshTokenRequest
+from app.core.captcha import generate_captcha, verify_captcha
+from app.schemas.auth import LoginRequest, LoginResponse, TokenResponse, RefreshTokenRequest, CaptchaResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -15,6 +16,15 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 @router.post("/login", response_model=LoginResponse)
 @limiter.limit("5/minute")
 def login(data: LoginRequest, request: Request ,db: Session = Depends(get_db)):
+    if not verify_captcha(
+        data.captcha_id,
+        data.captcha_answer
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CAPTCHA tidak valid atau sudah kedaluwarsa"
+        )
+    
     user = (
         db.query(User)
         .filter(
@@ -69,4 +79,12 @@ def refresh_access_token(data: RefreshTokenRequest, request: Request):
     return TokenResponse(
         access_token=new_access_token,
         refresh_token=data.refresh_token
+    )
+@router.get("/captcha", response_model=CaptchaResponse)
+def get_captcha():
+    captcha_id, question = generate_captcha()
+
+    return CaptchaResponse(
+        captcha_id=captcha_id,
+        question=question
     )
