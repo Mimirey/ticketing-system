@@ -161,7 +161,7 @@ def list_tickets(
     if pic_id:
         query= query.filter(Ticket.pic_id == pic_id)
 
-    if current_user.role.name == "USER":
+    if current_user.role.name in ["USER", "ADMIN"]:
         query = query.filter(Ticket.reporter_id == current_user.id)
     elif current_user.role.name == "STAFF_IT":
         query = query.filter(Ticket.pic_id == current_user.id)
@@ -206,6 +206,7 @@ def export_excel(
             "Content-Disposition": "attachment; filename=tickets.xlsx"
         },
     )
+
 @router.get("/export/pdf")
 def export_pdf(
     current_user: User = Depends(require_role("PM_IT")),
@@ -256,7 +257,7 @@ def get_ticket_timeline_endpoint(
         )
 
     if (
-        current_user.role.name == "USER"
+        current_user.role.name in ["USER", "ADMIN"]
         and ticket.reporter_id != current_user.id
     ):
         raise HTTPException(
