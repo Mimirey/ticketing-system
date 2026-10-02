@@ -32,6 +32,29 @@ services:
     volumes:
       - backend_uploads:/app/uploads
 
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_HOST: db
+    command: python -m app.worker.reminder_worker
+    depends_on:
+      db:
+        condition: service_healthy 
+  
+  telegram-bot:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DATABASE_HOST: db
+    command: python -m app.services.telegram_bot
+    depends_on:
+      db:
+        condition: service_healthy
+
   frontend:
     build:
       context: ./frontend
