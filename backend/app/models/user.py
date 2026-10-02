@@ -15,6 +15,7 @@ class User(Base):
         nullable=True,
         index=True
     )
+    telegram_chat_id = Column(String(50), nullable=True)
     email = Column(String(100), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
 

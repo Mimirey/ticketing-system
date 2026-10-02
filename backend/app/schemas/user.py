@@ -7,6 +7,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role_id: int
+    telegram_chat_id: str | None = None
     @field_validator("password")
     @classmethod
     def validate_password_field(cls, value:str)-> str:
@@ -30,3 +31,5 @@ class UserResponse(BaseModel):
         if hasattr(v, "name"):
             return v.name
         return v
+class TelegramConnectRequest(BaseModel):
+    telegram_chat_id: str

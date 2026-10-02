@@ -3,7 +3,7 @@ from app.models.role import Role
 from app.models.user import User
 from app.core.security import hash_password
 
-ROLES = ["USER", "PM_IT", "STAFF_IT"]
+ROLES = ["USER", "PM_IT", "STAFF_IT","ADMIN"]
 
 DEMO_USERS = [
     {"name": "Demo User", "username": "user", "email": "user@test.com", "password": "123456", "role": "USER"},
