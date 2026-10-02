@@ -9,3 +9,4 @@ from app.models.activity_log import ActivityLog
 from app.models.company import Company
 from app.models.application import Application
 from app.models.ticket_reminder import TicketReminder
+from app.models.telegram_link_token import TelegramLinkToken
