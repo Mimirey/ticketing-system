@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from apscheduler.schedulers.background import BackgroundScheduler
+from app.db.database import SessionLocal
+from app.services.ticket_reminder import check_ticket_reminders
 from app.core.limiter import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -51,3 +54,18 @@ def root():
     return {
         "message": "Ticketing System API is running"
     }
+def run_ticket_reminder():
+    db = SessionLocal()
+    try:
+        check_ticket_reminders(db)
+    except Exception as e:
+        print(f"Ticket reminder error: {e}")
+    finally:
+        db.close()
+scheduler = BackgroundScheduler()
+scheduler.add_job(
+    run_ticket_reminder,
+    "interval",
+    minutes=5,
+)
+scheduler.start()
