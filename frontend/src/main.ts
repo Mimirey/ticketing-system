@@ -13,17 +13,23 @@ import PrimeVue from 'primevue/config'
 import { AppPreset } from './theme.ts'
 import 'primeicons/primeicons.css'
 import './assets/main.css'
+import ToastService from 'primevue/toastservice'
 
 const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
+app.use(ToastService)
 
 app.use(PrimeVue, {
   theme: {
     preset: AppPreset,
     options: {
-      darkModeSelector: '.my-app-dark', 
+      darkModeSelector: '.my-app-dark',
+      cssLayer: {
+        name: 'primevue',
+        order: 'theme, base, primevue',
+      },
     },
   },
 })
