@@ -2,12 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
+from app.services.telegram_link import link_telegram_account
+from app.schemas.user import TelegramConnectRequest
 from app.core.dependencies import get_current_user, require_role
 from app.db.database import get_db
 from app.models.user import User
 from app.models.role import Role
 from app.schemas.user import UserResponse, UserCreate
 from app.core.security import hash_password
+from datetime import datetime,timedelta,timezone
+from app.models.telegram_link_token import TelegramLinkToken
+import secrets
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -66,7 +71,8 @@ def create_user(
         name=data.name,
         email=data.email,
         password_hash=hash_password(data.password),
-        role_id=data.role_id
+        role_id=data.role_id,
+        telegram_chat_id=data.telegram_chat_id
     )
     db.add(user)
     db.commit()
@@ -97,4 +103,67 @@ def delete_user(
     db.commit()
     return {
         "message": "User berhasil dihapus"
+    }
+
+@router.post("/me/telegram/link")
+def create_telegram_link(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    db.query(TelegramLinkToken).filter(
+        TelegramLinkToken.user_id == current_user.id,
+        TelegramLinkToken.used_at.is_(None)
+    ).delete(synchronize_session=False)
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    link_token = TelegramLinkToken(
+        user_id=current_user.id,
+        token=token,
+        expires_at=expires_at,
+    )
+    db.add(link_token)
+    db.commit()
+
+    bot_username = "amazink_ticketing_bot"
+    telegram_link = f"https://t.me/{bot_username}?start={token}"
+    return {
+        "message": "Link Telegram berhasil dibuat",
+        "telegram_link": telegram_link,
+        "expires_at": expires_at,
+    }
+
+@router.post("/me/telegram")
+def connect_telegram(
+    data: TelegramConnectRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    current_user.telegram_chat_id = data.telegram_chat_id
+
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "message": "Telegram berhasil terhubung",
+        "telegram_chat_id": current_user.telegram_chat_id,
+    }
+@router.post("/telegram/link/complete")
+def complete_telegram_link(
+    token: str,
+    telegram_chat_id: str,
+    db: Session = Depends(get_db),
+):
+    success, result = link_telegram_account(
+        db=db,
+        token=token,
+        telegram_chat_id=telegram_chat_id,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=400,
+            detail=result
+        )
+    return {
+        "message": "Telegram berhasil terhubung",
+        "user_id": result.id,
     }

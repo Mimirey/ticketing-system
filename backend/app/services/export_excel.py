@@ -20,7 +20,7 @@ def export_ticket_excel(tickets, db):
         "Application"
         "Title",
         "Type",
-        "Desxription",
+        "Description",
         "Priority",
         "Status",
         "Reporter",
