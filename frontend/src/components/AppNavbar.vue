@@ -23,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Activity Log', to: '/activity-log', icon: 'pi pi-history', permission: 'activity-log:view' },
   { label: 'Company', to: '/companies', icon: 'pi pi-building', permission: 'master:manage' },
   { label: 'Aplikasi', to: '/applications', icon: 'pi pi-box', permission: 'master:manage' },
+  { label: 'User', to: '/users', icon: 'pi pi-users', permission: 'user:manage' },
 ]
 
 const router = useRouter()

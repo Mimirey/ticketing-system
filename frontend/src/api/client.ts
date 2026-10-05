@@ -101,6 +101,9 @@ const FIELD_LABELS: Record<string, string> = {
   password: 'Password',
   captcha_answer: 'Jawaban captcha',
   name: 'Nama',
+  email: 'Email',
+  username: 'Username',
+  role_id: 'Role',
 }
 
 interface ValidationIssue {
