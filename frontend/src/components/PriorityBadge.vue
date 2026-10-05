@@ -6,5 +6,5 @@ defineProps<{ priority: string }>()
 </script>
 
 <template>
-  <Tag :value="priority" :severity="PRIORITY_SEVERITY[priority] ?? 'secondary'" />
+ <Tag :value="priority" :severity="PRIORITY_SEVERITY[priority] ?? 'secondary'" class="text-xs!" />
 </template>

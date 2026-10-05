@@ -16,6 +16,7 @@ import { downloadExport, fetchTickets, type SortField, type Ticket } from '@/api
 import { getErrorMessage } from '@/api/client'
 import { PRIORITY_OPTIONS, SORT_OPTIONS, STATUS_OPTIONS, TYPE_OPTIONS } from '@/constant/ticket'
 import { useAuthStore } from '@/stores/auth'
+import { DUE_TEXT_CLASS, getDueInfo } from '@/utils/due'
 
 const PAGE_SIZE = 10
 
@@ -146,7 +147,13 @@ const formatDate = (iso: string) => dayjs(iso).format('DD MMM YYYY')
             @click="onExport('pdf')"
           />
         </template>
-            <Button label="Buat Ticket" icon="pi pi-plus" size="small" @click="router.push({ name: 'ticket-create' })" />       
+            <Button
+              v-if="auth.can('ticket:create')"
+              label="Buat Ticket"
+              icon="pi pi-plus"
+              size="small"
+              @click="router.push({ name: 'ticket-create' })"
+            />       
       </div>
     </div>
 
@@ -189,7 +196,16 @@ const formatDate = (iso: string) => dayjs(iso).format('DD MMM YYYY')
     </Message>
 
     <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <DataTable :value="tickets" :loading="loading" size="small" data-key="id">
+      <DataTable
+        :value="tickets"
+        :loading="loading"
+        size="small"
+        data-key="id"
+        row-hover
+        class="text-sm! [&_th]:py-2.5! [&_th]:text-xs! [&_th]:font-semibold! [&_th]:text-slate-500! [&_td]:py-2!"
+        :pt="{ bodyRow: { class: 'cursor-pointer' } }"
+        @row-click="(e) => router.push({ name: 'ticket-detail', params: { id: e.data.id } })"
+      >
         <Column field="ticket_number" header="Nomor" />
         <Column field="title" header="Judul" />
         <Column field="type" header="Tipe" />
@@ -199,6 +215,22 @@ const formatDate = (iso: string) => dayjs(iso).format('DD MMM YYYY')
         <Column header="Prioritas">
           <template #body="{ data }"><PriorityBadge :priority="data.priority" /></template>
         </Column>
+
+        <Column header="Tenggat">
+          <template #body="{ data }">
+            <div v-if="data.due_date" class="leading-tight">
+              <p>{{ formatDate(data.due_date) }}</p>
+              <p
+                class="text-xs"
+                :class="DUE_TEXT_CLASS[getDueInfo(data.due_date, data.status).state]"
+              >
+                {{ getDueInfo(data.due_date, data.status).label }}
+              </p>
+            </div>
+            <span v-else class="text-slate-400">-</span>
+          </template>
+        </Column>
+
         <Column header="Dibuat">
           <template #body="{ data }">{{ formatDate(data.created_at) }}</template>
         </Column>

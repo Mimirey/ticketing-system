@@ -11,13 +11,14 @@ import Message from 'primevue/message'
 import { createTicket, type Ticket } from '@/api/ticket'
 import { uploadAttachment } from '@/api/attachment'
 import { fetchApplications, fetchCompanies, type Application, type Company } from '@/api/master'
-import { getErrorMessage } from '@/api/client'
+import { getErrorMessage, getFieldErrors } from '@/api/client'
 import { PRIORITY_OPTIONS, TYPE_OPTIONS } from '@/constant/ticket'
 
-const MIN_DESCRIPTION = 10 // SESUAIKAN dengan schema backend
-const MAX_FILES = 5 // SESUAIKAN
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB, SESUAIKAN
-const ACCEPT = 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt' // SESUAIKAN
+const MIN_DESCRIPTION = 10
+const MIN_TITLE = 5
+const MAX_FILES = 5
+const MAX_FILE_SIZE = 5 * 1024 * 1024
+const ACCEPT = 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt'
 const fileUploadRef = ref<{ choose: () => void } | null>(null)
 
 const router = useRouter()
@@ -57,7 +58,10 @@ const uploaded = new Set<File>()
 const locked = computed(() => !!createdTicket.value)
 
 for (const key of Object.keys(errors) as (keyof typeof errors)[]) {
-  watch(() => form[key], () => (errors[key] = ''))
+  watch(
+    () => form[key],
+    () => (errors[key] = ''),
+  )
 }
 
 function onFilesChange(e: { files: File[] }) {
@@ -97,7 +101,12 @@ watch(
 function validate(): boolean {
   errors.type = form.type ? '' : 'Jenis ticket wajib dipilih'
   errors.priority = form.priority ? '' : 'Prioritas wajib dipilih'
-  errors.title = form.title.trim() ? '' : 'Judul wajib diisi'
+
+  const title = form.title.trim()
+  if (!title) errors.title = 'Judul wajib diisi'
+  else if (title.length < MIN_TITLE) errors.title = `Judul minimal ${MIN_TITLE} karakter`
+  else errors.title = ''
+
   errors.companyId = form.companyId ? '' : 'Company wajib dipilih'
   errors.applicationId = form.applicationId ? '' : 'Aplikasi wajib dipilih'
 
@@ -110,6 +119,30 @@ function validate(): boolean {
   fileError.value = files.value.length ? '' : 'Minimal satu lampiran wajib diunggah'
 
   return Object.values(errors).every((m) => !m) && !fileError.value
+}
+
+const FORM_KEYS: Record<string, keyof typeof errors> = {
+  type: 'type',
+  priority: 'priority',
+  title: 'title',
+  description: 'description',
+  company_id: 'companyId',
+  application_id: 'applicationId',
+}
+
+function applyFieldErrors(error: unknown): boolean {
+  let applied = false
+
+  for (const [key, message] of Object.entries(getFieldErrors(error))) {
+    const target = FORM_KEYS[key]
+
+    if (target) {
+      errors[target] = message
+      applied = true
+    }
+  }
+
+  return applied
 }
 
 async function onSubmit() {
@@ -129,6 +162,7 @@ async function onSubmit() {
         application_id: form.applicationId!,
       })
     }
+
     const ticket = createdTicket.value
 
     const pending = files.value.filter((f) => !uploaded.has(f))
@@ -148,9 +182,12 @@ async function onSubmit() {
       detail: `Nomor ${ticket.ticket_number}`,
       life: 4000,
     })
+
     router.push({ name: 'tickets' })
   } catch (e) {
-    submitError.value = getErrorMessage(e, 'Gagal membuat ticket')
+    submitError.value = applyFieldErrors(e)
+      ? 'Periksa kembali isian yang ditandai.'
+      : getErrorMessage(e, 'Gagal membuat ticket')
   } finally {
     submitting.value = false
   }
@@ -291,53 +328,54 @@ async function onSubmit() {
         </div>
 
         <div class="flex flex-col gap-2">
-            <span class="text-sm font-medium text-slate-800">Lampiran</span>
+          <span class="text-sm font-medium text-slate-800">Lampiran</span>
 
-            <FileUpload
-                mode="advanced"
-                multiple
-                :accept="ACCEPT"
-                :max-file-size="MAX_FILE_SIZE"
-                :file-limit="MAX_FILES"
-                :disabled="locked"
-                invalid-file-size-message="{0}: ukuran file maksimal {1}."
-                invalid-file-limit-message="Maksimal {0} file."
-                :pt="{
-                header: { class: 'p-3!' },
-                content: { class: 'p-3!' },
-                }"
-                @select="onFilesChange"
-                @remove="onFilesChange"
-            >
-                <template #header="{ chooseCallback }">
-                <div class="flex flex-wrap items-center gap-3">
-                    <Button
-                    type="button"
-                    label="Pilih file"
-                    icon="pi pi-paperclip"
-                    size="small"
-                    :disabled="locked"
-                    @click="chooseCallback()"
-                    />
-                </div>
-                </template>
+          <FileUpload
+            mode="advanced"
+            multiple
+            :accept="ACCEPT"
+            :max-file-size="MAX_FILE_SIZE"
+            :file-limit="MAX_FILES"
+            :disabled="locked"
+            invalid-file-size-message="{0}: ukuran file maksimal {1}."
+            invalid-file-limit-message="Maksimal {0} file."
+            :pt="{
+              header: { class: 'p-3!' },
+              content: { class: 'p-3!' },
+            }"
+            @select="onFilesChange"
+            @remove="onFilesChange"
+          >
+            <template #header="{ chooseCallback }">
+              <div class="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  label="Pilih file"
+                  icon="pi pi-paperclip"
+                  size="small"
+                  :disabled="locked"
+                  @click="chooseCallback()"
+                />
+              </div>
+            </template>
 
-                <template #empty>
-                <div class="flex flex-col items-center gap-4 py-4 text-center">
-                    <i class="pi pi-paperclip text-3xl text-slate-400"></i>
-                    <p class="text-sm text-slate-500">Seret file ke sini untuk melampirkan</p>
-                </div>
-                </template>
-            </FileUpload>
-            <p class="text-xs text-slate-500">
-                 Wajib, min. 1 file. Maks. {{ MAX_FILES }} file, masing-masing
-                {{ MAX_FILE_SIZE / 1024 / 1024 }} MB.
-            </p>
+            <template #empty>
+              <div class="flex flex-col items-center gap-4 py-4 text-center">
+                <i class="pi pi-paperclip text-3xl text-slate-400"></i>
+                <p class="text-sm text-slate-500">Seret file ke sini untuk melampirkan</p>
+              </div>
+            </template>
+          </FileUpload>
 
-            <Message v-if="fileError" severity="error" size="small" variant="simple">
-                {{ fileError }}
-            </Message>
-            </div>
+          <p class="text-xs text-slate-500">
+            Wajib, min. 1 file. Maks. {{ MAX_FILES }} file, masing-masing
+            {{ MAX_FILE_SIZE / 1024 / 1024 }} MB.
+          </p>
+
+          <Message v-if="fileError" severity="error" size="small" variant="simple">
+            {{ fileError }}
+          </Message>
+        </div>
 
         <div class="flex items-center gap-2">
           <Button

@@ -4,12 +4,15 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import require_role
 from app.db.database import get_db
 from app.models.company import Company
+from app.models.ticket import Ticket
+from app.models.user import User
 from app.schemas.company import CompanyCreate, CompanyResponse, CompanyUpdate
 
-router= APIRouter(
+router = APIRouter(
     prefix="/companies",
     tags=["Companies"]
 )
+
 
 @router.get("", response_model=list[CompanyResponse])
 def list_companies(
@@ -121,8 +124,32 @@ def delete_company(
             status_code=404,
             detail="Company tidak ditemukan"
         )
+
+    in_use = db.query(Ticket).filter(
+        Ticket.company_id == company_id,
+        Ticket.is_deleted == False
+    ).count()
+
+    if in_use:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Company masih dipakai oleh {in_use} ticket"
+        )
+
+    db.query(Ticket).filter(
+        Ticket.company_id == company_id,
+        Ticket.is_deleted == True
+    ).update(
+        {
+            Ticket.company_id: None,
+            Ticket.application_id: None
+        },
+        synchronize_session=False
+    )
+
     db.delete(company)
     db.commit()
+
     return {
         "message": "Company berhasil dihapus"
     }

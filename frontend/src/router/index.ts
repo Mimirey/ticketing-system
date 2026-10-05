@@ -1,11 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import type { Permission } from '@/constant/permissions'
 
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
     guestOnly?: boolean
-    roles?: string[]
+    permission?: Permission
   }
 }
 
@@ -33,6 +34,7 @@ const router = createRouter({
           path: 'tickets/new',
           name: 'ticket-create',
           component: () => import('@/views/TicketFormView.vue'),
+          meta: { permission: 'ticket:create' },
         },
         {
           path: 'dashboard',
@@ -43,12 +45,30 @@ const router = createRouter({
           path: 'activity-log',
           name: 'activity-log',
           component: () => import('@/views/ActivityLogView.vue'),
-          meta: { roles: ['PM_IT'] }, // SESUAIKAN
+          meta: { permission: 'activity-log:view' },
         },
         {
           path: 'profile',
           name: 'profile',
           component: () => import('@/views/ProfileView.vue'),
+        },
+        {
+          path: 'tickets/:id(\\d+)',
+          name: 'ticket-detail',
+          component: () => import('@/views/TicketDetailView.vue'),
+          props: (route) => ({ id: Number(route.params.id) }),
+        },
+        {
+          path: 'companies',
+          name: 'companies',
+          component: () => import('@/views/CompanyView.vue'),
+          meta: { permission: 'master:manage' },
+        },
+        {
+          path: 'applications',
+          name: 'applications',
+          component: () => import('@/views/ApplicationView.vue'),
+          meta: { permission: 'master:manage' },
         },
       ],
     },
@@ -70,7 +90,7 @@ router.beforeEach((to) => {
     return { name: 'tickets' }
   }
 
-  if (to.meta.roles && !to.meta.roles.includes(auth.user?.role ?? '')) {
+  if (to.meta.permission && !auth.can(to.meta.permission)) {
     return { name: 'tickets' }
   }
 })

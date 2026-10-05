@@ -6,36 +6,33 @@ import Button from 'primevue/button'
 import Drawer from 'primevue/drawer'
 import Menu from 'primevue/menu'
 import { useAuthStore } from '@/stores/auth'
+import { ROLE_LABELS, type Permission, type Role } from '@/constant/permissions'
 import apg from '@/assets/apg.svg'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 interface NavItem {
   label: string
   to: string
   icon: string
-  roles?: string[] // kosong = semua role
+  permission?: Permission // kosong = semua role
 }
 
-// SESUAIKAN: menu apa yang boleh dilihat tiap role
 const NAV_ITEMS: NavItem[] = [
   { label: 'Tickets', to: '/tickets', icon: 'pi pi-ticket' },
   { label: 'Dashboard', to: '/dashboard', icon: 'pi pi-chart-bar' },
-  { label: 'Activity Log', to: '/activity-log', icon: 'pi pi-history', roles: ['PM_IT'] },
+  { label: 'Activity Log', to: '/activity-log', icon: 'pi pi-history', permission: 'activity-log:view' },
+  { label: 'Company', to: '/companies', icon: 'pi pi-building', permission: 'master:manage' },
+  { label: 'Aplikasi', to: '/applications', icon: 'pi pi-box', permission: 'master:manage' },
 ]
-
-const ROLE_LABELS: Record<string, string> = {
-  USER: 'User',
-  PM_IT: 'PM IT',
-  STAFF_IT: 'Staff IT',
-}
 
 const router = useRouter()
 const auth = useAuthStore()
 
 const visibleItems = computed(() =>
-  NAV_ITEMS.filter((i) => !i.roles || i.roles.includes(auth.user?.role ?? '')),
+  NAV_ITEMS.filter((i) => !i.permission || auth.can(i.permission)),
 )
 
-const roleLabel = computed(() => ROLE_LABELS[auth.user?.role ?? ''] ?? auth.user?.role ?? '')
+const roleLabel = computed(() => ROLE_LABELS[auth.user?.role as Role] ?? auth.user?.role ?? '')
 
 const initials = computed(() => {
   const parts = (auth.user?.name ?? '').trim().split(/\s+/).filter(Boolean)
@@ -70,18 +67,17 @@ const linkIdle = 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
     <div class="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
       <div class="md:hidden">
         <Button
-            icon="pi pi-bars"
-            severity="secondary"
-            variant="text"
-            aria-label="Buka menu"
-            @click="drawerOpen = true"
+          icon="pi pi-bars"
+          severity="secondary"
+          variant="text"
+          aria-label="Buka menu"
+          @click="drawerOpen = true"
         />
-        </div>
+      </div>
 
       <!-- Logo -->
       <RouterLink to="/tickets" class="flex shrink-0 items-center gap-2">
         <img :src="apg" alt="Logo perusahaan" class="h-12 w-auto shrink-0 object-contain" />
-        <!-- <span class="hidden text-base font-bold text-slate-800 sm:block">Ticketing System</span> -->
       </RouterLink>
 
       <!-- Menu (desktop) -->
@@ -100,8 +96,7 @@ const linkIdle = 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
       </nav>
 
       <div class="ml-auto flex items-center gap-1">
-        <!-- TODO: hubungkan ke endpoint notifikasi, tambah OverlayBadge dan daftar -->
-        <Button icon="pi pi-bell" severity="secondary" variant="text" rounded aria-label="Notifikasi" />
+        <NotificationBell />
 
         <!-- Menu pengguna -->
         <button

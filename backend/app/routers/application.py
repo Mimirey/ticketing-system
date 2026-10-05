@@ -5,6 +5,7 @@ from app.core.dependencies import require_role
 from app.db.database import get_db
 from app.models.application import Application
 from app.models.company import Company
+from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas.application import (
     ApplicationCreate,
@@ -29,11 +30,13 @@ def list_applications(
         query = query.filter(
             Application.company_id == company_id
         )
+
     return query.order_by(Application.name).all()
+
 
 @router.get("/{application_id}", response_model=ApplicationResponse)
 def get_application(
-    application_id:int,
+    application_id: int,
     db: Session = Depends(get_db),
 ):
     application = db.query(Application).filter(
@@ -43,9 +46,11 @@ def get_application(
     if not application:
         raise HTTPException(
             status_code=404,
-            detail="Application tdiak ditemukan"
+            detail="Application tidak ditemukan"
         )
+
     return application
+
 
 @router.post(
     "",
@@ -68,15 +73,18 @@ def create_application(
             status_code=404,
             detail="Company tidak ditemukan"
         )
+
     existing = db.query(Application).filter(
         Application.company_id == data.company_id,
         Application.name == data.name
     ).first()
+
     if existing:
         raise HTTPException(
             status_code=400,
             detail="Application sudah terdaftar pada company tersebut"
         )
+
     application = Application(
         company_id=data.company_id,
         name=data.name,
@@ -88,6 +96,8 @@ def create_application(
     db.refresh(application)
 
     return application
+
+
 @router.put(
     "/{application_id}",
     response_model=ApplicationResponse
@@ -98,11 +108,12 @@ def update_application(
     current_user: User = Depends(
         require_role("PM_IT")
     ),
-    db: Session= Depends (get_db)
+    db: Session = Depends(get_db)
 ):
     application = db.query(Application).filter(
         Application.id == application_id
     ).first()
+
     if not application:
         raise HTTPException(
             status_code=404,
@@ -112,16 +123,19 @@ def update_application(
     company = db.query(Company).filter(
         Company.id == data.company_id
     ).first()
+
     if not company:
         raise HTTPException(
             status_code=404,
             detail="Company tidak ditemukan"
         )
+
     existing = db.query(Application).filter(
         Application.company_id == data.company_id,
         Application.name == data.name,
         Application.id != application_id
     ).first()
+
     if existing:
         raise HTTPException(
             status_code=400,
@@ -129,12 +143,14 @@ def update_application(
         )
 
     application.company_id = data.company_id
-    application.name= data.name
+    application.name = data.name
     application.description = data.description
 
     db.commit()
     db.refresh(application)
+
     return application
+
 
 @router.delete("/{application_id}")
 def delete_application(
@@ -142,10 +158,10 @@ def delete_application(
     current_user: User = Depends(
         require_role("PM_IT")
     ),
-    db: Session = Depends (get_db),
+    db: Session = Depends(get_db),
 ):
     application = db.query(Application).filter(
-        application.id == application_id
+        Application.id == application_id
     ).first()
 
     if not application:
@@ -153,5 +169,27 @@ def delete_application(
             status_code=404,
             detail="Application tidak ditemukan"
         )
+
+    in_use = db.query(Ticket).filter(
+        Ticket.application_id == application_id,
+        Ticket.is_deleted == False
+    ).count()
+
+    if in_use:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Aplikasi masih dipakai oleh {in_use} ticket"
+        )
+
+    db.query(Ticket).filter(
+        Ticket.application_id == application_id,
+        Ticket.is_deleted == True
+    ).update(
+        {
+            Ticket.application_id: None
+        },
+        synchronize_session=False
+    )
+
     db.delete(application)
     db.commit()

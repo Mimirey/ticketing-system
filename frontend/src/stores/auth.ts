@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { loginRequest, type AuthUser, type LoginPayload } from '@/api/auth'
+import { ROLE_PERMISSIONS, type Permission, type Role } from '@/constant/permissions'
 
 const STORAGE_KEY = 'auth'
 
@@ -27,20 +28,31 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(stored?.user ?? null)
   const isAuthenticated = computed(() => !!accessToken.value)
 
+  function persist() {
+    if (!accessToken.value || !refreshToken.value || !user.value) return
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        accessToken: accessToken.value,
+        refreshToken: refreshToken.value,
+        user: user.value,
+      } satisfies StoredAuth),
+    )
+  }
+
   async function login(payload: LoginPayload): Promise<void> {
     const result = await loginRequest(payload)
     accessToken.value = result.accessToken
     refreshToken.value = result.refreshToken
     user.value = result.user
+    persist()
+  }
 
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-        user: result.user,
-      } satisfies StoredAuth),
-    )
+  // Dipakai interceptor setelah token diperpanjang
+  function setTokens(access: string, refresh: string): void {
+    accessToken.value = access
+    refreshToken.value = refresh
+    persist()
   }
 
   function logout(): void {
@@ -50,5 +62,10 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(STORAGE_KEY)
   }
 
-  return { user, accessToken, refreshToken, isAuthenticated, login, logout }
+  function can(permission: Permission): boolean {
+    const role = user.value?.role as Role | undefined
+    return !!role && (ROLE_PERMISSIONS[role]?.includes(permission) ?? false)
+  }
+
+  return { user, accessToken, refreshToken, isAuthenticated, login, setTokens, logout, can }
 })
