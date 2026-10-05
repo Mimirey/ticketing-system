@@ -6,6 +6,7 @@ from app.db.database import get_db
 from app.models.company import Company
 from app.models.ticket import Ticket
 from app.models.user import User
+from app.models.user import User
 from app.schemas.company import CompanyCreate, CompanyResponse, CompanyUpdate
 
 router = APIRouter(
