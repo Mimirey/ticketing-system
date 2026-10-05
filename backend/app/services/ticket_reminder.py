@@ -1,7 +1,5 @@
 from datetime import datetime, timedelta, timezone
-
 from sqlalchemy.orm import Session
-
 from app.models.ticket import Ticket
 from app.models.ticket_reminder import TicketReminder
 from app.models.enums import TicketStatus
@@ -88,13 +86,21 @@ def send_ticket_reminder(
         )
     else:
         return False
-
+    sent_successfully = False
     for user in recipients:
-        send_telegram_message(
-            user.telegram_chat_id,
-            message,
-        )
-
+        try:
+            send_telegram_message(
+                user.telegram_chat_id,
+                message,
+            )
+            sent_successfully = True
+        except Exception as e:
+            print(
+                f"Gagal mengirim reminder Telegram "
+                f"untuk user {user.id}: {e}"
+            )
+    if not sent_successfully:
+        return False
     reminder = TicketReminder(
         ticket_id=ticket.id,
         reminder_type=reminder_type,
