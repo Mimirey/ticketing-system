@@ -6,5 +6,5 @@ defineProps<{ status: string }>()
 </script>
 
 <template>
-  <Tag :value="status" :severity="STATUS_SEVERITY[status] ?? 'secondary'" />
+  <Tag :value="status" :severity="STATUS_SEVERITY[status] ?? 'secondary'" class="text-xs!" />
 </template>

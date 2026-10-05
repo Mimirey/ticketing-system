@@ -1,7 +1,9 @@
-export const STATUS_OPTIONS = ['Open', 'Assigned', 'In Progress', 'QA', 'Done'] 
-export const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Critical'] 
-export const TYPE_OPTIONS = ['Bug', 'Feature', 'Support'] 
 import type { SortField } from '@/api/ticket'
+
+// Nilai persis dari app/models/enums.py
+export const STATUS_OPTIONS = ['Open', 'Assigned', 'In Progress', 'QA', 'Done']
+export const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Critical']
+export const TYPE_OPTIONS = ['Bug', 'Feature Request']
 
 export const SORT_OPTIONS: { label: string; value: SortField }[] = [
   { label: 'Tanggal Dibuat', value: 'created_at' },
@@ -25,4 +27,12 @@ export const PRIORITY_SEVERITY: Record<string, Severity> = {
   Medium: 'info',
   High: 'warn',
   Critical: 'danger',
+}
+
+export const NEXT_STATUS: Record<string, string[]> = {
+  Open: ['Assigned'],
+  Assigned: ['In Progress'],
+  'In Progress': ['QA'],
+  QA: ['Done', 'In Progress'],
+  Done: [],
 }

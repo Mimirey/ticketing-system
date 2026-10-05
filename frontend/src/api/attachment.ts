@@ -1,9 +1,10 @@
+import axios from 'axios'
 import { api } from './client'
 
 export interface Attachment {
   id: number
   original_filename: string
-  file_size: number 
+  file_size: number
   content_type: string
   uploaded_by: { id: number; name: string }
   created_at: string
@@ -11,7 +12,7 @@ export interface Attachment {
 
 export async function uploadAttachment(ticketId: number, file: File): Promise<Attachment> {
   const body = new FormData()
-  body.append('file', file) 
+  body.append('file', file)
   const { data } = await api.post<Attachment>(`/tickets/${ticketId}/attachments`, body)
   return data
 }
@@ -26,10 +27,23 @@ export async function deleteAttachment(ticketId: number, attachmentId: number): 
 }
 
 async function fetchBlob(ticketId: number, attachmentId: number, kind: 'download' | 'preview') {
-  const { data } = await api.get<Blob>(`/tickets/${ticketId}/attachments/${attachmentId}/${kind}`, {
-    responseType: 'blob',
-  })
-  return data
+  try {
+    const { data } = await api.get<Blob>(
+      `/tickets/${ticketId}/attachments/${attachmentId}/${kind}`,
+      { responseType: 'blob' },
+    )
+    return data
+  } catch (e) {
+    // Respons error juga berupa blob. Diubah ke JSON supaya getErrorMessage bisa membaca `detail`.
+    if (axios.isAxiosError(e) && e.response?.data instanceof Blob) {
+      try {
+        e.response.data = JSON.parse(await e.response.data.text())
+      } catch {
+        // bukan JSON, biarkan
+      }
+    }
+    throw e
+  }
 }
 
 export async function downloadAttachment(ticketId: number, attachment: Attachment): Promise<void> {
@@ -42,7 +56,16 @@ export async function downloadAttachment(ticketId: number, attachment: Attachmen
   URL.revokeObjectURL(url)
 }
 
-export async function getPreviewUrl(ticketId: number, attachmentId: number): Promise<string> {
-  const blob = await fetchBlob(ticketId, attachmentId, 'preview')
-  return URL.createObjectURL(blob)
+// Kembalikan URL sementara untuk <img> atau <iframe>.
+// Panggil URL.revokeObjectURL(url) saat dialog pratinjau ditutup.
+export async function getPreviewUrl(ticketId: number, attachment: Attachment): Promise<string> {
+  let blob: Blob
+  try {
+    blob = await fetchBlob(ticketId, attachment.id, 'preview')
+  } catch (e) {
+    console.warn('Endpoint preview gagal, memakai endpoint download', e)
+    blob = await fetchBlob(ticketId, attachment.id, 'download')
+  }
+  // Paksa tipe sesuai data lampiran supaya <img> dan <iframe> menampilkannya dengan benar
+  return URL.createObjectURL(new Blob([blob], { type: attachment.content_type }))
 }

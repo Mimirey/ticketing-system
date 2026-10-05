@@ -14,12 +14,14 @@ import { AppPreset } from './theme.ts'
 import 'primeicons/primeicons.css'
 import './assets/main.css'
 import ToastService from 'primevue/toastservice'
+import ConfirmationService from 'primevue/confirmationservice'
 
 const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
 app.use(ToastService)
+app.use(ConfirmationService)
 
 app.use(PrimeVue, {
   theme: {

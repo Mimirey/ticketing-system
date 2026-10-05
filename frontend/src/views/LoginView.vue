@@ -13,6 +13,7 @@ import apg from '@/assets/apg.svg'
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const expired = route.query.expired === '1'
 
 const form = reactive({ username: '', password: '', captchaId: '', captchaAnswer: '' })
 const errors = reactive({ username: '', password: '', captcha: '' })
@@ -97,6 +98,15 @@ async function onSubmit() {
         </div>
 
         <form class="flex flex-col gap-6" novalidate @submit.prevent="onSubmit">
+          <Message
+            v-if="expired && !submitError"
+            severity="warn"
+            size="small"
+            :closable="false"
+          >
+            Sesi kamu telah berakhir, silakan login lagi.
+          </Message>
+
           <Message v-if="submitError" severity="error" size="small" :closable="false">
             {{ submitError }}
           </Message>

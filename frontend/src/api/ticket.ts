@@ -65,3 +65,33 @@ export async function createTicket(payload: TicketCreatePayload): Promise<Ticket
   const { data } = await api.post<Ticket>('/tickets', payload)
   return data
 }
+
+export async function fetchTicket(id: number): Promise<Ticket> {
+  const { data } = await api.get<Ticket>(`/tickets/${id}`)
+  return data
+}
+
+export async function assignTicket(id: number, picId: number): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/tickets/${id}/assign`, { pic_id: picId })
+  return data
+}
+
+export async function updateTicketStatus(id: number, status: string): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/tickets/${id}/status`, { status })
+  return data
+}
+
+export async function updateTicketPriority(id: number, priority: string): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/tickets/${id}/priority`, { priority })
+  return data
+}
+
+export async function deleteTicket(id: number): Promise<void> {
+  await api.delete(`/tickets/${id}`)
+}
+
+export async function updateTicketDueDate(id: number, dueDate: string): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/tickets/${id}/due-date`, { due_date: dueDate })
+  return data
+}
+
