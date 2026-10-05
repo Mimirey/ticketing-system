@@ -39,16 +39,54 @@ export async function fetchTickets(params: TicketListParams): Promise<Ticket[]> 
   return data
 }
 
+export class EmptyFileError extends Error {}
+
 export async function downloadExport(kind: 'excel' | 'pdf'): Promise<void> {
   const path = kind === 'excel' ? '/tickets/export' : '/tickets/export/pdf'
-  const { data } = await api.get<Blob>(path, { responseType: 'blob' })
+  const response = await api.get<Blob>(path, { responseType: 'blob' })
+  const data = response.data
+
+  if (!data || data.size === 0) {
+    throw new EmptyFileError(
+      'Unduhan tidak diterima browser. Jika Anda menggunakan download manager (seperti IDM), nonaktifkan untuk situs ini lalu coba lagi.',
+    )
+  }
+
+  // Coba ambil nama file dari header Content-Disposition
+  const contentDisposition = response.headers['content-disposition']
+  let filename = ''
+
+  if (contentDisposition) {
+    const match = contentDisposition.match(/filename="?([^"]+)"?/)
+    if (match && match[1]) {
+      filename = match[1]
+    }
+  }
+
+  // Fallback jika header tidak ada: buat nama file dinamis dengan timestamp
+  if (!filename) {
+    const now = new Date()
+    const timestamp =
+      now.getFullYear().toString() +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0') +
+      '_' +
+      String(now.getHours()).padStart(2, '0') +
+      String(now.getMinutes()).padStart(2, '0') +
+      String(now.getSeconds()).padStart(2, '0')
+
+    const ext = kind === 'excel' ? 'xlsx' : 'pdf'
+    filename = `Laporan_Ticket_${timestamp}.${ext}`
+  }
 
   const url = URL.createObjectURL(data)
   const a = document.createElement('a')
   a.href = url
-  a.download = kind === 'excel' ? 'tickets.xlsx' : 'tickets.pdf'
+  a.download = filename
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
 export interface TicketCreatePayload {
@@ -94,4 +132,3 @@ export async function updateTicketDueDate(id: number, dueDate: string): Promise<
   const { data } = await api.patch<Ticket>(`/tickets/${id}/due-date`, { due_date: dueDate })
   return data
 }
-
