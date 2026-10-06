@@ -70,6 +70,12 @@ const router = createRouter({
           component: () => import('@/views/ApplicationView.vue'),
           meta: { permission: 'master:manage' },
         },
+        {
+          path: 'users',
+          name: 'users',
+          component: () => import('@/views/UserView.vue'),
+          meta: { permission: 'user:manage' },
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: { name: 'tickets' } },

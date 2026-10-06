@@ -187,6 +187,11 @@ def list_tickets(
         ticket.sla_status = sla["sla_status"]
         ticket.remaining_hours = sla["remaining_hours"]
     return tickets
+from datetime import datetime
+from fastapi import Depends
+from fastapi.responses import Response
+
+
 @router.get("/export")
 def export_excel(
     db: Session = Depends(get_db),
@@ -199,13 +204,17 @@ def export_excel(
     )
 
     output = export_ticket_excel(tickets, db)
-    return StreamingResponse(
-        output,
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"Laporan_Ticket_{timestamp}.xlsx"
+
+    return Response(
+        content=output.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": "attachment; filename=tickets.xlsx"
+            "Content-Disposition": f'attachment; filename="{filename}"'
         },
     )
+
 
 @router.get("/export/pdf")
 def export_pdf(
@@ -219,14 +228,17 @@ def export_pdf(
     )
 
     pdf = export_ticket_pdf(tickets)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"Laporan_Ticket_{timestamp}.pdf"
 
-    return StreamingResponse(
-        pdf,
+    return Response(
+        content=pdf.getvalue(),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": "attachment; filename=tickets.pdf"
+            "Content-Disposition": f'attachment; filename="{filename}"'
         },
     )
+
 
 def calculate_duration(start, end):
     if not start or not end:
@@ -412,6 +424,7 @@ def update_status(
     db.commit()
     db.refresh(ticket)
     return ticket
+
 @router.patch("/{ticket_id}/priority", response_model=TicketResponse)
 def update_priority(
     ticket_id: int,
