@@ -1,18 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from app.services.telegram_link import link_telegram_account
-from app.schemas.user import TelegramConnectRequest
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.core.activity_log_utils import log_activity
 from app.core.dependencies import get_current_user, require_role
-from app.db.database import get_db
-from app.models.user import User
-from app.models.role import Role
-from app.schemas.user import UserResponse, UserCreate
 from app.core.security import hash_password
-from datetime import datetime,timedelta,timezone
+from app.db.database import get_db
+from app.models.role import Role
 from app.models.telegram_link_token import TelegramLinkToken
-import secrets
+from app.models.user import User
+from app.schemas.user import TelegramConnectRequest, UserCreate, UserResponse
+from app.services.telegram_link import link_telegram_account
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -25,6 +27,8 @@ def read_current_user(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "role": current_user.role.name,
     }
+
+
 @router.get("", response_model=List[UserResponse])
 def list_users(
     role: Optional[str] = None,
@@ -35,75 +39,89 @@ def list_users(
     if role:
         query = query.join(User.role).filter(Role.name == role)
     return query.all()
+
+
 @router.post("", response_model=UserResponse)
 def create_user(
     data: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("PM_IT"))
+    current_user: User = Depends(require_role("PM_IT")),
 ):
-    if current_user.role.name != "PM_IT":
-        raise HTTPException(
-            status_code=403,
-            detail="Hanya PM IT yang dapat membuat user"
-        )
-    existing_username = db.query(User).filter(
-        User.username == data.username,
-        User.is_deleted == False
-    ).first()
-
+    existing_username = db.query(User).filter(User.username == data.username).first()
     if existing_username:
-        raise HTTPException(
-            status_code=400,
-            detail="Username sudah digunakan"
-        )
-    
-    existing_email = db.query(User).filter(
-        User.email == data.email,
-        User.is_deleted == False
-    ).first()
+        detail = "Username sudah digunakan"
+        if existing_username.is_deleted:
+            detail += " oleh akun yang sudah dihapus"
+        raise HTTPException(status_code=400, detail=detail)
+
+    existing_email = db.query(User).filter(User.email == data.email).first()
     if existing_email:
-        raise HTTPException(
-            status_code=400,
-            detail="Email sudah digunakan"
-        )
+        detail = "Email sudah digunakan"
+        if existing_email.is_deleted:
+            detail += " oleh akun yang sudah dihapus"
+        raise HTTPException(status_code=400, detail=detail)
+
+    role = db.query(Role).filter(Role.id == data.role_id).first()
+    if not role:
+        raise HTTPException(status_code=400, detail="Role tidak valid")
+
     user = User(
         username=data.username,
         name=data.name,
         email=data.email,
         password_hash=hash_password(data.password),
         role_id=data.role_id,
-        telegram_chat_id=data.telegram_chat_id
+        telegram_chat_id=data.telegram_chat_id,
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
 
+    try:
+        log_activity(
+            db,
+            current_user.id,
+            "CREATE_USER",
+            f"{current_user.name} menambahkan user {user.name} dengan role {role.name}",
+        )
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Email atau username sudah digunakan",
+        )
+
+    db.refresh(user)
     return user
+
+
 @router.delete("/{user_id}")
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("PM_IT"))
+    current_user: User = Depends(require_role("PM_IT")),
 ):
-    if current_user.role.name != "PM_IT":
-        raise HTTPException(
-            status_code=403,
-            detail="Hanya PM IT yang dapat menghapus user"
-        )
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Tidak bisa menghapus akun sendiri")
+
     user = db.query(User).filter(
         User.id == user_id,
-        User.is_deleted == False
+        User.is_deleted == False,
     ).first()
     if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User tidak ditemukan"
-        )
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+
     user.is_deleted = True
+
+    log_activity(
+        db,
+        current_user.id,
+        "DELETE_USER",
+        f"{current_user.name} menghapus user {user.name}",
+    )
+
     db.commit()
-    return {
-        "message": "User berhasil dihapus"
-    }
+    return {"message": "User berhasil dihapus"}
+
 
 @router.post("/me/telegram/link")
 def create_telegram_link(
@@ -112,10 +130,12 @@ def create_telegram_link(
 ):
     db.query(TelegramLinkToken).filter(
         TelegramLinkToken.user_id == current_user.id,
-        TelegramLinkToken.used_at.is_(None)
+        TelegramLinkToken.used_at.is_(None),
     ).delete(synchronize_session=False)
+
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+
     link_token = TelegramLinkToken(
         user_id=current_user.id,
         token=token,
@@ -126,11 +146,13 @@ def create_telegram_link(
 
     bot_username = "amazink_ticketing_bot"
     telegram_link = f"https://t.me/{bot_username}?start={token}"
+
     return {
         "message": "Link Telegram berhasil dibuat",
         "telegram_link": telegram_link,
         "expires_at": expires_at,
     }
+
 
 @router.post("/me/telegram")
 def connect_telegram(
@@ -139,7 +161,6 @@ def connect_telegram(
     current_user: User = Depends(get_current_user),
 ):
     current_user.telegram_chat_id = data.telegram_chat_id
-
     db.commit()
     db.refresh(current_user)
 
@@ -147,6 +168,8 @@ def connect_telegram(
         "message": "Telegram berhasil terhubung",
         "telegram_chat_id": current_user.telegram_chat_id,
     }
+
+
 @router.post("/telegram/link/complete")
 def complete_telegram_link(
     token: str,
@@ -159,10 +182,8 @@ def complete_telegram_link(
         telegram_chat_id=telegram_chat_id,
     )
     if not success:
-        raise HTTPException(
-            status_code=400,
-            detail=result
-        )
+        raise HTTPException(status_code=400, detail=result)
+
     return {
         "message": "Telegram berhasil terhubung",
         "user_id": result.id,
