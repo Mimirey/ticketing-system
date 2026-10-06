@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.activity_log_utils import log_activity
 from app.core.dependencies import require_role
 from app.db.database import get_db
 from app.models.application import Application
@@ -95,6 +96,14 @@ def create_application(
     db.commit()
     db.refresh(application)
 
+    log_activity(
+        db,
+        current_user.id,
+        "CREATE_APPLICATION",
+        f"{current_user.name} menambahkan aplikasi {application.name} di company {application.company.name}"
+    )
+    db.commit()
+
     return application
 
 
@@ -142,9 +151,18 @@ def update_application(
             detail="Application sudah terdaftar pada company tersebut"
         )
 
+    old_name = application.name
+
     application.company_id = data.company_id
     application.name = data.name
     application.description = data.description
+
+    log_activity(
+        db,
+        current_user.id,
+        "UPDATE_APPLICATION",
+        f"{current_user.name} mengubah aplikasi {old_name}"
+    )
 
     db.commit()
     db.refresh(application)
@@ -191,5 +209,18 @@ def delete_application(
         synchronize_session=False
     )
 
+    app_name = application.name
+
+    log_activity(
+        db,
+        current_user.id,
+        "DELETE_APPLICATION",
+        f"{current_user.name} menghapus aplikasi {app_name}"
+    )   
+
     db.delete(application)
     db.commit()
+
+    return {
+        "message": "Application berhasil dihapus"
+    }
