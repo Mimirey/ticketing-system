@@ -55,11 +55,15 @@ const staff = ref<UserSummary[]>([])
 const minDate = new Date()
 const dueDraft = ref<Date | null>(null)
 
+const isReporter = computed(
+  () => !!ticket.value && ticket.value.reporter_id === auth.user?.id,
+)
+
 const validId = computed(() => Number.isInteger(props.id) && props.id > 0)
 const isPM = computed(() => auth.user?.role === 'PM_IT')
 const isDone = computed(() => ticket.value?.status === 'Done')
 const canManage = computed(() => auth.can('ticket:assign') && !isDone.value)
-const canDelete = computed(() => isPM.value && !isDone.value)
+const canDelete = computed(() => (isPM.value || isReporter.value) && !isDone.value)
 
 const nextStatuses = computed(() => {
   const t = ticket.value
