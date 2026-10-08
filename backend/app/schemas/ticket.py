@@ -1,21 +1,47 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
-from app.models.enums import TicketType, TicketStatus,TicketPriority
+from app.models.enums import TicketType, TicketStatus, TicketPriority
+
+
+class UserBrief(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class CompanyBrief(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class ApplicationBrief(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
 
 class TicketCreate(BaseModel):
     type: TicketType
-    title: str = Field (..., min_length=5, max_length=200)
+    title: str = Field(..., min_length=5, max_length=200)
     description: str = Field(..., min_length=10)
-    priority: TicketPriority= TicketPriority.LOW
-    module: Optional[str]= None
+    priority: TicketPriority = TicketPriority.LOW
+    module: Optional[str] = None
     due_date: datetime | None = None
-    company_id:int
-    application_id:int
+    company_id: int
+    application_id: int
+
 
 class TicketResponse(BaseModel):
     id: int
-    ticket_number:str
+    ticket_number: str
     type: TicketType
     title: str
     description: str
@@ -25,7 +51,7 @@ class TicketResponse(BaseModel):
     due_date: datetime | None
 
     company_id: int | None = None
-    application_id: int | None = None   
+    application_id: int | None = None
 
     sla_status: str | None = None
     remaining_hours: float | None = None
@@ -34,13 +60,26 @@ class TicketResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    reporter: Optional[UserBrief] = None
+    pic: Optional[UserBrief] = None
+    company: Optional[CompanyBrief] = None
+    application: Optional[ApplicationBrief] = None
+
     class Config:
-        from_attributes= True
+        from_attributes = True
+
+
 class TicketAssign(BaseModel):
     pic_id: int
+
+
 class TicketStatusUpdate(BaseModel):
     status: TicketStatus
+
+
 class TicketPriorityUpdate(BaseModel):
     priority: TicketPriority
+
+
 class TicketDueDateUpdate(BaseModel):
     due_date: datetime

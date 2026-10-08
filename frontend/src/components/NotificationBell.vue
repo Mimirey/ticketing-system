@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import 'dayjs/locale/id'
 import relativeTime from 'dayjs/plugin/relativeTime'
-import Badge from 'primevue/badge'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Popover from 'primevue/popover'
@@ -35,7 +34,7 @@ async function refreshCount() {
   try {
     unread.value = await fetchUnreadCount()
   } catch {
-    // gagal saat polling tidak perlu mengganggu pengguna
+    return
   }
 }
 
@@ -88,7 +87,7 @@ function onShow() {
 
 async function markRead(n: AppNotification) {
   if (n.isRead) return
-  n.isRead = true // langsung berubah di layar
+  n.isRead = true
   unread.value = Math.max(0, unread.value - 1)
   try {
     await markNotificationRead(n.id)
@@ -116,7 +115,7 @@ const fromNow = (iso: string) => dayjs(iso).fromNow()
 </script>
 
 <template>
-  <div class="relative">
+  <div class="relative inline-flex">
     <Button
       icon="pi pi-bell"
       severity="secondary"
@@ -126,8 +125,11 @@ const fromNow = (iso: string) => dayjs(iso).fromNow()
       aria-haspopup="true"
       @click="toggle"
     />
-    <span v-if="unread > 0" class="pointer-events-none absolute top-0 right-0">
-      <Badge :value="badgeText" severity="danger" size="small" />
+    <span
+      v-if="unread > 0"
+      class="pointer-events-none absolute top-0 right-0 z-10 flex h-4 min-w-4 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] leading-none font-semibold text-white ring-2 ring-white"
+    >
+      {{ badgeText }}
     </span>
 
     <Popover ref="popover" @show="onShow">

@@ -10,14 +10,18 @@ export interface Ticket {
   status: string
   module: string
   due_date: string | null
-  company_id: number
-  application_id: number
+  company_id: number | null
+  application_id: number | null
   sla_status: string
   remaining_hours: number
   reporter_id: number
   pic_id: number | null
   created_at: string
   updated_at: string
+  reporter?: { id: number; name: string } | null
+  pic?: { id: number; name: string } | null
+  company?: { id: number; name: string } | null
+  application?: { id: number; name: string } | null
 }
 
 export type SortField = 'created_at' | 'updated_at' | 'priority' | 'status'
