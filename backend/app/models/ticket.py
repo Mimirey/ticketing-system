@@ -5,9 +5,10 @@ from sqlalchemy.sql import func
 from app.db.database import Base
 from app.models.enums import TicketType, TicketPriority, TicketStatus
 
+
 class Ticket(Base):
-    __tablename__="tickets"
-    id= Column(Integer, primary_key=True, index=True)
+    __tablename__ = "tickets"
+    id = Column(Integer, primary_key=True, index=True)
     ticket_number = Column(String(20), unique=True, index=True, nullable=True)
 
     type = Column(SQLEnum(TicketType), nullable=False)
@@ -19,15 +20,19 @@ class Ticket(Base):
     due_date = Column(DateTime(timezone=True), nullable=True)
     reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     pic_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    company_id=Column(Integer, ForeignKey("companies.id"), nullable=True)
-    application_id= Column(Integer,ForeignKey("applications.id"), nullable=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=True)
 
     is_deleted = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    reporter = relationship("User", foreign_keys=[reporter_id], backref="tickets_reported")
-    pic = relationship("User", foreign_keys=[pic_id], backref="tickets_assigned")
-    company= relationship("Company", backref="tickets")
-    application= relationship("Application", back_populates="tickets")
+    reporter = relationship(
+        "User", foreign_keys=[reporter_id], backref="tickets_reported", lazy="joined"
+    )
+    pic = relationship(
+        "User", foreign_keys=[pic_id], backref="tickets_assigned", lazy="joined"
+    )
+    company = relationship("Company", backref="tickets", lazy="joined")
+    application = relationship("Application", back_populates="tickets", lazy="joined")
