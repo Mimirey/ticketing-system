@@ -33,3 +33,12 @@ class UserResponse(BaseModel):
         return v
 class TelegramConnectRequest(BaseModel):
     telegram_chat_id: str
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str)-> str:
+        validate_password(value)
+        return value

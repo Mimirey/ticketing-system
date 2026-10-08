@@ -12,51 +12,63 @@ from app.schemas.auth import LoginRequest, LoginResponse, TokenResponse, Refresh
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-
-@router.post("/login", response_model=LoginResponse)
-@limiter.limit("5/minute")
-def login(data: LoginRequest, request: Request ,db: Session = Depends(get_db)):
-    if not verify_captcha(
-        data.captcha_id,
-        data.captcha_answer
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CAPTCHA tidak valid atau sudah kedaluwarsa"
-        )
-    
-    user = (
+@router.post("/login", response_model=LoginResponse) 
+@limiter.limit("5/minute") 
+def login( 
+    data: LoginRequest, 
+    request: Request, 
+    db: Session = Depends(get_db) ): 
+    if not verify_captcha( 
+        data.captcha_id, 
+        data.captcha_answer 
+    ): 
+        raise HTTPException( 
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="CAPTCHA tidak valid atau sudah kedaluwarsa" 
+            ) 
+    user = ( 
         db.query(User)
-        .filter(
-           or_(
-               User.email == data.identifier,
-               User.username == data.identifier
-           ), 
-            User.is_deleted == False,
-            User.is_active == True
-            )
-        .first()
-    )
-    if not user or not verify_password(data.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Username/email atau password salah",
+          .filter( or_( 
+              User.email == data.identifier, 
+              User.username == data.identifier 
+              )
+         ) 
+         .first() 
+    ) 
+    if not user: 
+        raise HTTPException( 
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Username/email atau password salah", 
+        )  
+    if user.is_deleted: 
+        raise HTTPException( 
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Akun sudah dinonaktifkan. Silakan hubungi administrator.", 
         )
-    token = create_access_token(
-        data={"sub": str(user.id), "role": user.role.name}
-    )
-    refresh_token = create_refresh_token(
-        data={"sub": str(user.id), "role": user.role.name}
-    )
-
-    log_activity(db, user.id, "LOGIN", f"{user.name} melakukan login")
-    db.commit()
-    return LoginResponse(
-        access_token=token,
-        refresh_token=refresh_token,
-        id=user.id,
-        role=user.role.name,
-        name=user.name,
+    if not user.is_active: 
+        raise HTTPException( 
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Akun sedang dinonaktifkan. Silakan hubungi administrator.", 
+        )
+    if not verify_password(data.password, user.password_hash): 
+        raise HTTPException( 
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Username/email atau password salah", 
+            ) 
+    token = create_access_token( 
+        data={"sub": str(user.id), "role": user.role.name} 
+    ) 
+    refresh_token = create_refresh_token( 
+        data={"sub": str(user.id), "role": user.role.name} 
+    ) 
+    log_activity( db, user.id, "LOGIN", f"{user.name} melakukan login" ) 
+    db.commit() 
+    return LoginResponse( 
+        access_token=token, 
+        refresh_token=refresh_token, 
+        id=user.id, 
+        role=user.role.name, 
+        name=user.name, 
     )
 
 @router.post("/refresh", response_model=TokenResponse)
