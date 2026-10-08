@@ -8,17 +8,17 @@ from sqlalchemy.orm import Session
 
 from app.core.activity_log_utils import log_activity
 from app.core.dependencies import get_current_user, require_role
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.db.database import get_db
 from app.models.role import Role
 from app.models.telegram_link_token import TelegramLinkToken
 from app.models.user import User
-from app.schemas.user import TelegramConnectRequest, UserCreate, UserResponse
+from app.schemas.user import TelegramConnectRequest, UserCreate, UserResponse, ChangePasswordRequest
 from app.services.telegram_link import link_telegram_account
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-
+DEFAULT_RESET_PASSWORD = "admin123"
 @router.get("/me")
 def read_current_user(current_user: User = Depends(get_current_user)):
     return {
@@ -169,6 +169,27 @@ def connect_telegram(
         "telegram_chat_id": current_user.telegram_chat_id,
     }
 
+@router.patch("/me/password")
+def change_password(
+    data: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not verify_password(
+        data.current_password,
+        current_user.password_hash
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password saat ini salah"
+        )
+
+    current_user.password_hash = hash_password(data.new_password)
+    db.commit()
+    return {
+        "message": "Password berhasil diubah"
+    }
+
 
 @router.post("/telegram/link/complete")
 def complete_telegram_link(
@@ -187,4 +208,29 @@ def complete_telegram_link(
     return {
         "message": "Telegram berhasil terhubung",
         "user_id": result.id,
+    }
+
+@router.patch("/{user_id}/reset-password")
+def reset_user_password(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("PM_IT"))
+):
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id,
+            User.is_deleted == False
+        )
+        .first()
+    )
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User tidak ditemukan"
+        )
+    user.password_hash = hash_password(DEFAULT_RESET_PASSWORD)
+    db.commit()
+    return {
+        "message": "Password berhasil di-reset menjadi password default"
     }
