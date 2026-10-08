@@ -2,7 +2,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -13,12 +13,19 @@ from app.db.database import get_db
 from app.models.role import Role
 from app.models.telegram_link_token import TelegramLinkToken
 from app.models.user import User
-from app.schemas.user import TelegramConnectRequest, UserCreate, UserResponse, ChangePasswordRequest
+from app.schemas.user import (
+    ChangePasswordRequest,
+    TelegramConnectRequest,
+    UserCreate,
+    UserResponse,
+)
 from app.services.telegram_link import link_telegram_account
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-DEFAULT_RESET_PASSWORD = "admin123"
+DEFAULT_PASSWORD = "Admin123"
+
+
 @router.get("/me")
 def read_current_user(current_user: User = Depends(get_current_user)):
     return {
@@ -69,7 +76,7 @@ def create_user(
         username=data.username,
         name=data.name,
         email=data.email,
-        password_hash=hash_password(data.password),
+        password_hash=hash_password(DEFAULT_PASSWORD),
         role_id=data.role_id,
         telegram_chat_id=data.telegram_chat_id,
     )
@@ -169,26 +176,23 @@ def connect_telegram(
         "telegram_chat_id": current_user.telegram_chat_id,
     }
 
+
 @router.patch("/me/password")
 def change_password(
     data: ChangePasswordRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    if not verify_password(
-        data.current_password,
-        current_user.password_hash
-    ):
+    if not verify_password(data.current_password, current_user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password saat ini salah"
+            detail="Password saat ini salah",
         )
 
     current_user.password_hash = hash_password(data.new_password)
     db.commit()
-    return {
-        "message": "Password berhasil diubah"
-    }
+
+    return {"message": "Password berhasil diubah"}
 
 
 @router.post("/telegram/link/complete")
@@ -210,27 +214,28 @@ def complete_telegram_link(
         "user_id": result.id,
     }
 
+
 @router.patch("/{user_id}/reset-password")
 def reset_user_password(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("PM_IT"))
+    current_user: User = Depends(require_role("PM_IT")),
 ):
     user = (
         db.query(User)
         .filter(
             User.id == user_id,
-            User.is_deleted == False
+            User.is_deleted == False,
         )
         .first()
     )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User tidak ditemukan"
+            detail="User tidak ditemukan",
         )
-    user.password_hash = hash_password(DEFAULT_RESET_PASSWORD)
+
+    user.password_hash = hash_password(DEFAULT_PASSWORD)
     db.commit()
-    return {
-        "message": "Password berhasil di-reset menjadi password default"
-    }
+
+    return {"message": "Password berhasil di-reset menjadi password default"}
