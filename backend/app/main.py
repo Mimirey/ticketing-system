@@ -17,7 +17,8 @@ from app.routers import (
     notification,
     activity_log,
     application,
-    company
+    company,
+    report
 )
 
 app = FastAPI(
@@ -48,6 +49,7 @@ app.include_router(notification.router)
 app.include_router(activity_log.router)
 app.include_router(company.router)
 app.include_router(application.router)
+app.include_router(report.router)
 
 @app.get("/")
 def root():
