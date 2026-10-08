@@ -20,6 +20,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Tickets', to: '/tickets', icon: 'pi pi-ticket' },
   { label: 'Dashboard', to: '/dashboard', icon: 'pi pi-chart-bar' },
+  { label: 'Report', to: '/report', icon: 'pi pi-chart-line', permission: 'report:view' },
   { label: 'Activity Log', to: '/activity-log', icon: 'pi pi-history', permission: 'activity-log:view' },
   { label: 'Company', to: '/companies', icon: 'pi pi-building', permission: 'master:manage' },
   { label: 'Aplikasi', to: '/applications', icon: 'pi pi-box', permission: 'master:manage' },

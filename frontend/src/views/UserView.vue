@@ -4,21 +4,25 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
-import Password from 'primevue/password'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
-import { createUser, deleteUser, fetchAllUsers, type UserAccount } from '@/api/users'
+import {
+  createUser,
+  deleteUser,
+  fetchAllUsers,
+  resetUserPassword,
+  type UserAccount,
+} from '@/api/users'
 import { getErrorMessage, getFieldErrors } from '@/api/client'
 import { ROLE_IDS, ROLE_LABELS, ROLE_OPTIONS, type Role } from '@/constant/permissions'
 import { useAuthStore } from '@/stores/auth'
+import UserFormDialog from '@/components/UserForm.vue'
 
 const PAGE_SIZE = 10
-const MIN_PASSWORD = 8
 
 const auth = useAuthStore()
 const toast = useToast()
@@ -35,12 +39,12 @@ const dialogVisible = ref(false)
 const saving = ref(false)
 const saveError = ref('')
 const deletingId = ref<number | null>(null)
+const resettingId = ref<number | null>(null)
 
 const form = reactive({
   name: '',
   username: '',
   email: '',
-  password: '',
   role: null as Role | null,
 })
 
@@ -48,7 +52,6 @@ const errors = reactive({
   name: '',
   username: '',
   email: '',
-  password: '',
   role: '',
 })
 
@@ -110,7 +113,6 @@ function resetForm() {
   form.name = ''
   form.username = ''
   form.email = ''
-  form.password = ''
   form.role = null
   for (const key of Object.keys(errors) as (keyof typeof errors)[]) errors[key] = ''
   saveError.value = ''
@@ -141,11 +143,6 @@ function validate(): boolean {
     errors.email = 'Email sudah dipakai'
   else errors.email = ''
 
-  if (!form.password) errors.password = 'Password wajib diisi'
-  else if (form.password.length < MIN_PASSWORD)
-    errors.password = `Password minimal ${MIN_PASSWORD} karakter`
-  else errors.password = ''
-
   errors.role = form.role ? '' : 'Role wajib dipilih'
 
   return Object.values(errors).every((m) => !m)
@@ -156,17 +153,23 @@ async function onSave() {
   if (!validate()) return
 
   saving.value = true
+  const name = form.name.trim()
+
   try {
     await createUser({
       username: form.username.trim(),
-      name: form.name.trim(),
+      name,
       email: form.email.trim(),
-      password: form.password,
       role_id: ROLE_IDS[form.role!],
       telegram_chat_id: null,
     })
 
-    toast.add({ severity: 'success', summary: 'User ditambahkan', life: 3000 })
+    toast.add({
+      severity: 'success',
+      summary: 'User ditambahkan',
+      detail: `Akun ${name} memakai password default. Sampaikan ke pemilik akun dan minta segera menggantinya.`,
+      life: 5000,
+    })
     dialogVisible.value = false
     await load()
   } catch (e) {
@@ -175,7 +178,6 @@ async function onSave() {
       name: 'name',
       username: 'username',
       email: 'email',
-      password: 'password',
       role_id: 'role',
     }
 
@@ -192,6 +194,39 @@ async function onSave() {
   } finally {
     saving.value = false
   }
+}
+
+function onResetPassword(user: UserAccount) {
+  if (isSelf(user)) return
+
+  confirm.require({
+    header: 'Reset password?',
+    message: `Password "${user.name}" akan diganti dengan password default. Sampaikan ke pemilik akun dan minta segera menggantinya.`,
+    icon: 'pi pi-key',
+    rejectProps: { label: 'Batal', severity: 'secondary', variant: 'text', size: 'small' },
+    acceptProps: { label: 'Reset', severity: 'warn', size: 'small' },
+    accept: async () => {
+      resettingId.value = user.id
+      try {
+        await resetUserPassword(user.id)
+        toast.add({
+          severity: 'success',
+          summary: 'Password di-reset',
+          detail: `Akun ${user.name} memakai password default.`,
+          life: 5000,
+        })
+      } catch (e) {
+        toast.add({
+          severity: 'error',
+          summary: 'Gagal reset password',
+          detail: getErrorMessage(e),
+          life: 6000,
+        })
+      } finally {
+        resettingId.value = null
+      }
+    },
+  })
 }
 
 function onDelete(user: UserAccount) {
@@ -226,6 +261,7 @@ function onDelete(user: UserAccount) {
 
 <template>
   <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+    <!-- Header -->
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-slate-800">User</h1>
@@ -235,6 +271,7 @@ function onDelete(user: UserAccount) {
       <Button label="Tambah User" icon="pi pi-plus" size="small" @click="openCreate" />
     </div>
 
+    <!-- Filter -->
     <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
       <IconField class="w-full sm:w-72">
         <InputIcon class="pi pi-search" />
@@ -255,6 +292,7 @@ function onDelete(user: UserAccount) {
       </div>
     </div>
 
+    <!-- Error -->
     <Message v-if="error" severity="error" size="small" :closable="false" class="mb-4">
       <div class="flex items-center gap-3">
         <span>{{ error }}</span>
@@ -262,6 +300,7 @@ function onDelete(user: UserAccount) {
       </div>
     </Message>
 
+    <!-- Desktop -->
     <div class="hidden overflow-hidden rounded-xl border border-slate-200 bg-white md:block">
       <DataTable
         :value="filtered"
@@ -294,20 +333,39 @@ function onDelete(user: UserAccount) {
           </template>
         </Column>
 
-        <Column header="Aksi" style="width: 6rem">
+        <Column header="Aksi" style="width: 8rem">
           <template #body="{ data }">
-            <Button
-              icon="pi pi-trash"
-              severity="danger"
-              variant="text"
-              rounded
-              size="small"
-              :aria-label="isSelf(data) ? 'Akun sendiri tidak bisa dihapus' : 'Hapus'"
-              :title="isSelf(data) ? 'Akun sendiri tidak bisa dihapus' : 'Hapus user'"
-              :disabled="isSelf(data)"
-              :loading="deletingId === data.id"
-              @click="onDelete(data)"
-            />
+            <div class="flex items-center">
+              <Button
+                icon="pi pi-key"
+                severity="secondary"
+                variant="text"
+                rounded
+                size="small"
+                aria-label="Reset password"
+                :title="
+                  isSelf(data)
+                    ? 'Gunakan menu profil untuk mengganti password sendiri'
+                    : 'Reset password'
+                "
+                :disabled="isSelf(data) || deletingId === data.id"
+                :loading="resettingId === data.id"
+                @click="onResetPassword(data)"
+              />
+
+              <Button
+                icon="pi pi-trash"
+                severity="danger"
+                variant="text"
+                rounded
+                size="small"
+                :aria-label="isSelf(data) ? 'Akun sendiri tidak bisa dihapus' : 'Hapus'"
+                :title="isSelf(data) ? 'Akun sendiri tidak bisa dihapus' : 'Hapus user'"
+                :disabled="isSelf(data) || resettingId === data.id"
+                :loading="deletingId === data.id"
+                @click="onDelete(data)"
+              />
+            </div>
           </template>
         </Column>
 
@@ -319,6 +377,7 @@ function onDelete(user: UserAccount) {
       </DataTable>
     </div>
 
+    <!-- Mobile -->
     <div class="md:hidden">
       <div v-if="loading" class="flex flex-col gap-3">
         <div v-for="n in 4" :key="n" class="h-24 animate-pulse rounded-xl bg-slate-100"></div>
@@ -362,17 +421,31 @@ function onDelete(user: UserAccount) {
               </span>
             </div>
 
-            <Button
-              icon="pi pi-trash"
-              severity="danger"
-              variant="text"
-              rounded
-              size="small"
-              :aria-label="isSelf(u) ? 'Akun sendiri tidak bisa dihapus' : 'Hapus'"
-              :disabled="isSelf(u)"
-              :loading="deletingId === u.id"
-              @click="onDelete(u)"
-            />
+            <div class="flex shrink-0 items-center">
+              <Button
+                icon="pi pi-key"
+                severity="secondary"
+                variant="text"
+                rounded
+                size="small"
+                aria-label="Reset password"
+                :disabled="isSelf(u) || deletingId === u.id"
+                :loading="resettingId === u.id"
+                @click="onResetPassword(u)"
+              />
+
+              <Button
+                icon="pi pi-trash"
+                severity="danger"
+                variant="text"
+                rounded
+                size="small"
+                :aria-label="isSelf(u) ? 'Akun sendiri tidak bisa dihapus' : 'Hapus'"
+                :disabled="isSelf(u) || resettingId === u.id"
+                :loading="deletingId === u.id"
+                @click="onDelete(u)"
+              />
+            </div>
           </li>
         </ul>
 
@@ -389,121 +462,16 @@ function onDelete(user: UserAccount) {
       </template>
     </div>
 
-    <Dialog
+    <!-- Tambah User -->
+    <UserFormDialog
       v-model:visible="dialogVisible"
-      modal
-      header="Tambah User"
-      :style="{ width: '32rem', maxWidth: '95vw' }"
-      :closable="!saving"
-      @hide="resetForm"
-    >
-      <form class="flex flex-col gap-5" novalidate @submit.prevent="onSave">
-        <Message v-if="saveError" severity="error" size="small" :closable="false">
-          {{ saveError }}
-        </Message>
-
-        <div class="flex flex-col gap-2">
-          <label for="user-name" class="text-sm font-medium text-slate-800">Nama Lengkap</label>
-          <InputText
-            id="user-name"
-            v-model="form.name"
-            placeholder="Contoh: Budi Santoso"
-            autocomplete="off"
-            :invalid="!!errors.name"
-            :disabled="saving"
-            fluid
-          />
-          <Message v-if="errors.name" severity="error" size="small" variant="simple">
-            {{ errors.name }}
-          </Message>
-        </div>
-
-        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <div class="flex flex-col gap-2">
-            <label for="user-username" class="text-sm font-medium text-slate-800">Username</label>
-            <InputText
-              id="user-username"
-              v-model="form.username"
-              placeholder="budi.santoso"
-              autocomplete="off"
-              :invalid="!!errors.username"
-              :disabled="saving"
-              fluid
-            />
-            <Message v-if="errors.username" severity="error" size="small" variant="simple">
-              {{ errors.username }}
-            </Message>
-          </div>
-
-          <div class="flex flex-col gap-2">
-            <label for="user-role" class="text-sm font-medium text-slate-800">Role</label>
-            <Select
-              v-model="form.role"
-              input-id="user-role"
-              :options="ROLE_OPTIONS"
-              option-label="label"
-              option-value="value"
-              placeholder="Pilih role"
-              :invalid="!!errors.role"
-              :disabled="saving"
-              fluid
-            />
-            <Message v-if="errors.role" severity="error" size="small" variant="simple">
-              {{ errors.role }}
-            </Message>
-          </div>
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label for="user-email" class="text-sm font-medium text-slate-800">Email</label>
-          <InputText
-            id="user-email"
-            v-model="form.email"
-            type="email"
-            placeholder="budi@perusahaan.com"
-            autocomplete="off"
-            :invalid="!!errors.email"
-            :disabled="saving"
-            fluid
-          />
-          <Message v-if="errors.email" severity="error" size="small" variant="simple">
-            {{ errors.email }}
-          </Message>
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label for="user-password" class="text-sm font-medium text-slate-800">Password</label>
-          <Password
-            v-model="form.password"
-            input-id="user-password"
-            placeholder="Minimal 8 karakter"
-            autocomplete="new-password"
-            :feedback="false"
-            toggle-mask
-            :invalid="!!errors.password"
-            :disabled="saving"
-            fluid
-          />
-          <Message v-if="errors.password" severity="error" size="small" variant="simple">
-            {{ errors.password }}
-          </Message>
-          <p v-else class="text-xs text-slate-500">
-            Sampaikan password ini ke pemilik akun. Setelah disimpan, password tidak bisa dilihat lagi.
-          </p>
-        </div>
-
-        <div class="flex justify-end gap-2">
-          <Button
-            type="button"
-            label="Batal"
-            severity="secondary"
-            variant="text"
-            :disabled="saving"
-            @click="dialogVisible = false"
-          />
-          <Button type="submit" label="Simpan" :loading="saving" />
-        </div>
-      </form>
-    </Dialog>
+      :saving="saving"
+      :save-error="saveError"
+      :form="form"
+      :errors="errors"
+      :role-options="ROLE_OPTIONS"
+      @save="onSave"
+      @reset="resetForm"
+    />
   </div>
 </template>
