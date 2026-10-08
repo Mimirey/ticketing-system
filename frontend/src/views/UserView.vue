@@ -29,6 +29,7 @@ const loading = ref(true)
 const error = ref('')
 const keyword = ref('')
 const filterRole = ref<Role | null>(null)
+const visibleCount = ref(PAGE_SIZE)
 
 const dialogVisible = ref(false)
 const saving = ref(false)
@@ -52,6 +53,15 @@ const errors = reactive({
 })
 
 const roleLabel = (role: string) => ROLE_LABELS[role as Role] ?? role
+const isSelf = (user: UserAccount) => user.id === auth.user?.id
+
+const initials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join('')
 
 const filtered = computed(() => {
   const k = keyword.value.trim().toLowerCase()
@@ -66,6 +76,13 @@ const filtered = computed(() => {
         u.email.toLowerCase().includes(k),
     )
     .sort((a, b) => a.name.localeCompare(b.name, 'id'))
+})
+
+const shown = computed(() => filtered.value.slice(0, visibleCount.value))
+const remaining = computed(() => Math.max(0, filtered.value.length - visibleCount.value))
+
+watch([keyword, filterRole], () => {
+  visibleCount.value = PAGE_SIZE
 })
 
 for (const key of Object.keys(errors) as (keyof typeof errors)[]) {
@@ -178,7 +195,7 @@ async function onSave() {
 }
 
 function onDelete(user: UserAccount) {
-  if (user.id === auth.user?.id) return
+  if (isSelf(user)) return
 
   confirm.require({
     header: 'Hapus user?',
@@ -208,7 +225,7 @@ function onDelete(user: UserAccount) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl px-6 py-6">
+  <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6">
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-slate-800">User</h1>
@@ -218,22 +235,24 @@ function onDelete(user: UserAccount) {
       <Button label="Tambah User" icon="pi pi-plus" size="small" @click="openCreate" />
     </div>
 
-    <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
       <IconField class="w-full sm:w-72">
         <InputIcon class="pi pi-search" />
         <InputText v-model="keyword" placeholder="Cari nama, username, atau email" size="small" fluid />
       </IconField>
 
-      <Select
-        v-model="filterRole"
-        :options="ROLE_OPTIONS"
-        option-label="label"
-        option-value="value"
-        placeholder="Semua Role"
-        show-clear
-        size="small"
-        class="w-44"
-      />
+      <div class="w-full sm:w-44">
+        <Select
+          v-model="filterRole"
+          :options="ROLE_OPTIONS"
+          option-label="label"
+          option-value="value"
+          placeholder="Semua Role"
+          show-clear
+          size="small"
+          fluid
+        />
+      </div>
     </div>
 
     <Message v-if="error" severity="error" size="small" :closable="false" class="mb-4">
@@ -243,7 +262,7 @@ function onDelete(user: UserAccount) {
       </div>
     </Message>
 
-    <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div class="hidden overflow-hidden rounded-xl border border-slate-200 bg-white md:block">
       <DataTable
         :value="filtered"
         :loading="loading"
@@ -255,8 +274,8 @@ function onDelete(user: UserAccount) {
       >
         <Column header="Nama">
           <template #body="{ data }">
-            <span class="font-medium text-slate-800">{{ data.name }}</span>
-            <span v-if="data.id === auth.user?.id" class="ml-2 text-xs text-slate-400">(Kamu)</span>
+            <span class="font-medium whitespace-nowrap text-slate-800">{{ data.name }}</span>
+            <span v-if="isSelf(data)" class="ml-2 text-xs whitespace-nowrap text-slate-400">(Kamu)</span>
           </template>
         </Column>
 
@@ -270,11 +289,9 @@ function onDelete(user: UserAccount) {
         <Column field="email" header="Email" />
 
         <Column header="Role">
-            <template #body="{ data }">
-                <span class="text-sm text-slate-600">
-                {{ roleLabel(data.role) }}
-                </span>
-            </template>
+          <template #body="{ data }">
+            <span class="text-sm whitespace-nowrap text-slate-600">{{ roleLabel(data.role) }}</span>
+          </template>
         </Column>
 
         <Column header="Aksi" style="width: 6rem">
@@ -285,9 +302,9 @@ function onDelete(user: UserAccount) {
               variant="text"
               rounded
               size="small"
-              :aria-label="data.id === auth.user?.id ? 'Akun sendiri tidak bisa dihapus' : 'Hapus'"
-              :title="data.id === auth.user?.id ? 'Akun sendiri tidak bisa dihapus' : 'Hapus user'"
-              :disabled="data.id === auth.user?.id"
+              :aria-label="isSelf(data) ? 'Akun sendiri tidak bisa dihapus' : 'Hapus'"
+              :title="isSelf(data) ? 'Akun sendiri tidak bisa dihapus' : 'Hapus user'"
+              :disabled="isSelf(data)"
               :loading="deletingId === data.id"
               @click="onDelete(data)"
             />
@@ -300,6 +317,76 @@ function onDelete(user: UserAccount) {
           </p>
         </template>
       </DataTable>
+    </div>
+
+    <div class="md:hidden">
+      <div v-if="loading" class="flex flex-col gap-3">
+        <div v-for="n in 4" :key="n" class="h-24 animate-pulse rounded-xl bg-slate-100"></div>
+      </div>
+
+      <div
+        v-else-if="!filtered.length"
+        class="flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white py-10 text-center"
+      >
+        <i class="pi pi-users text-3xl text-slate-300"></i>
+        <p class="text-sm text-slate-500">
+          {{ keyword || filterRole ? 'Tidak ada user yang cocok.' : 'Belum ada user.' }}
+        </p>
+      </div>
+
+      <template v-else>
+        <ul class="flex flex-col gap-3">
+          <li
+            v-for="u in shown"
+            :key="u.id"
+            class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4"
+          >
+            <span
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600"
+              aria-hidden="true"
+            >
+              {{ initials(u.name) }}
+            </span>
+
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-semibold text-slate-800">
+                {{ u.name }}
+                <span v-if="isSelf(u)" class="ml-1 text-xs font-normal text-slate-400">(Kamu)</span>
+              </p>
+              <p v-if="u.username" class="truncate text-xs text-slate-500">@{{ u.username }}</p>
+              <p class="truncate text-xs text-slate-500">{{ u.email }}</p>
+              <span
+                class="mt-2 inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-medium text-slate-700"
+              >
+                {{ roleLabel(u.role) }}
+              </span>
+            </div>
+
+            <Button
+              icon="pi pi-trash"
+              severity="danger"
+              variant="text"
+              rounded
+              size="small"
+              :aria-label="isSelf(u) ? 'Akun sendiri tidak bisa dihapus' : 'Hapus'"
+              :disabled="isSelf(u)"
+              :loading="deletingId === u.id"
+              @click="onDelete(u)"
+            />
+          </li>
+        </ul>
+
+        <div v-if="remaining > 0" class="mt-4">
+          <Button
+            :label="`Tampilkan lebih banyak (${remaining})`"
+            severity="secondary"
+            variant="outlined"
+            size="small"
+            fluid
+            @click="visibleCount += PAGE_SIZE"
+          />
+        </div>
+      </template>
     </div>
 
     <Dialog

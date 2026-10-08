@@ -8,16 +8,13 @@ defineProps<{
 </script>
 
 <template>
-  <div class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
-    <div
-      class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-(--p-primary-50) text-(--p-primary-color)"
-    >
-      <i :class="icon" class="text-lg"></i>
-    </div>
-    <div>
+  <div class="rounded-xl border border-slate-200 bg-white p-5">
+    <div class="flex items-center justify-between gap-3">
       <p class="text-sm text-slate-500">{{ label }}</p>
-      <div v-if="loading" class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-100"></div>
-      <p v-else class="text-2xl font-bold text-slate-800">{{ value }}</p>
+      <i :class="icon" class="text-base text-slate-400" aria-hidden="true"></i>
     </div>
+
+    <div v-if="loading" class="mt-3 h-8 w-14 animate-pulse rounded bg-slate-100"></div>
+    <p v-else class="mt-2 text-3xl font-bold tracking-tight text-slate-800">{{ value }}</p>
   </div>
 </template>

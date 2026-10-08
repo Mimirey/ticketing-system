@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.activity_log_utils import log_activity
 from app.core.dependencies import require_role
 from app.db.database import get_db
+from app.models.application import Application
 from app.models.company import Company
 from app.models.ticket import Ticket
-from app.models.user import User
 from app.models.user import User
 from app.schemas.company import CompanyCreate, CompanyResponse, CompanyUpdate
 
@@ -68,6 +69,14 @@ def create_company(
     db.commit()
     db.refresh(company)
 
+    log_activity(
+        db,
+        current_user.id,
+        "CREATE_COMPANY",
+        f"{current_user.name} menambahkan company {company.name}"
+    )
+    db.commit()
+
     return company
 
 
@@ -102,7 +111,17 @@ def update_company(
             detail="Nama company sudah digunakan"
         )
 
+    old_name = company.name
     company.name = data.name
+
+    detail = f" menjadi {company.name}" if old_name != company.name else ""
+
+    log_activity(
+        db,
+        current_user.id,
+        "UPDATE_COMPANY",
+        f"{current_user.name} mengubah company {old_name}{detail}"
+    )
 
     db.commit()
     db.refresh(company)
@@ -137,6 +156,12 @@ def delete_company(
             detail=f"Company masih dipakai oleh {in_use} ticket"
         )
 
+    app_count = db.query(Application).filter(
+        Application.company_id == company_id
+    ).count()
+
+    company_name = company.name
+
     db.query(Ticket).filter(
         Ticket.company_id == company_id,
         Ticket.is_deleted == True
@@ -146,6 +171,15 @@ def delete_company(
             Ticket.application_id: None
         },
         synchronize_session=False
+    )
+
+    extra = f" beserta {app_count} aplikasi" if app_count else ""
+
+    log_activity(
+        db,
+        current_user.id,
+        "DELETE_COMPANY",
+        f"{current_user.name} menghapus company {company_name}{extra}"
     )
 
     db.delete(company)
