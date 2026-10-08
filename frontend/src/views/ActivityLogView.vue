@@ -4,7 +4,6 @@ import dayjs from 'dayjs'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Select from 'primevue/select'
-import Tag from 'primevue/tag'
 import { fetchActivityLogs, type ActivityLog } from '@/api/activity'
 import { getErrorMessage } from '@/api/client'
 import { ACTION_OPTIONS, actionMeta } from '@/constant/activity'
@@ -131,15 +130,21 @@ const formatTime = (iso: string) => dayjs(iso).format('DD MMM YYYY, HH:mm:ss')
         <li
           v-for="log in rows"
           :key="log.id"
-          class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
+          class="flex flex-col gap-2 px-4 py-3 hover:bg-slate-50/60 sm:flex-row sm:items-center sm:gap-4"
         >
-          <div class="shrink-0 sm:w-32">
-            <Tag :value="log.meta.label" :severity="log.meta.severity" class="text-xs!" />
+          <div class="shrink-0 sm:w-44">
+            <span
+              class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap ring-1 ring-inset"
+              :class="log.meta.badge"
+            >
+              <i :class="log.meta.icon" class="text-[11px]" aria-hidden="true"></i>
+              {{ log.meta.label }}
+            </span>
           </div>
 
           <p class="min-w-0 flex-1 text-sm text-slate-700">{{ log.description }}</p>
 
-          <div class="shrink-0 text-xs text-slate-500 sm:text-right">
+          <div class="shrink-0 text-xs text-slate-500 tabular-nums sm:text-right">
             <p v-if="log.showUser" class="font-medium text-slate-700">{{ log.userName }}</p>
             <p>{{ formatTime(log.createdAt) }}</p>
           </div>

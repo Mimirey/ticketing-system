@@ -55,11 +55,15 @@ const staff = ref<UserSummary[]>([])
 const minDate = new Date()
 const dueDraft = ref<Date | null>(null)
 
+const isReporter = computed(
+  () => !!ticket.value && ticket.value.reporter_id === auth.user?.id,
+)
+
 const validId = computed(() => Number.isInteger(props.id) && props.id > 0)
 const isPM = computed(() => auth.user?.role === 'PM_IT')
 const isDone = computed(() => ticket.value?.status === 'Done')
 const canManage = computed(() => auth.can('ticket:assign') && !isDone.value)
-const canDelete = computed(() => isPM.value && !isDone.value)
+const canDelete = computed(() => (isPM.value || isReporter.value) && !isDone.value)
 
 const nextStatuses = computed(() => {
   const t = ticket.value
@@ -117,6 +121,9 @@ async function retry() {
 }
 
 async function loadNames(t: Ticket) {
+  if (t.company?.name && t.application?.name) return
+  if (!t.company_id) return
+
   try {
     const [companies, apps] = await Promise.all([
       fetchCompanies(),
@@ -257,10 +264,17 @@ const errorView = computed(() => {
 
 const formatDateTime = (iso: string) => dayjs(iso).format('DD MMM YYYY, HH:mm')
 
-function who(id: number | null) {
-  if (!id) return 'Belum ditugaskan'
-  if (id === auth.user?.id) return 'Kamu'
-  return staff.value.find((s) => s.id === id)?.name ?? `User #${id}`
+function who(
+  person: { id: number; name: string } | null | undefined,
+  id: number | null,
+  empty = '-',
+) {
+  if (!id) return empty
+
+  const name =
+    person?.name ?? staff.value.find((s) => s.id === id)?.name ?? `User #${id}`
+
+  return id === auth.user?.id ? `${name} (Kamu)` : name
 }
 
 const details = computed(() => {
@@ -269,11 +283,11 @@ const details = computed(() => {
 
   return [
     { label: 'Jenis', value: t.type },
-    { label: 'Company', value: companyName.value },
-    { label: 'Aplikasi', value: applicationName.value },
+    { label: 'Company', value: t.company?.name ?? companyName.value },
+    { label: 'Aplikasi', value: t.application?.name ?? applicationName.value },
     { label: 'Modul', value: t.module || '-' },
-    { label: 'Pelapor', value: who(t.reporter_id) },
-    { label: 'PIC', value: who(t.pic_id) },
+    { label: 'Pelapor', value: who(t.reporter, t.reporter_id) },
+    { label: 'PIC', value: who(t.pic, t.pic_id, 'Belum ditugaskan') },
     { label: 'Tenggat', value: t.due_date ? formatDateTime(t.due_date) : '-' },
     { label: 'SLA', value: '', key: 'sla' },
     { label: 'Dibuat', value: formatDateTime(t.created_at) },
