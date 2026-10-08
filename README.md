@@ -73,6 +73,71 @@ docker compose down        # data tetap tersimpan
 docker compose down -v     # menghapus seluruh data (reset total)
 ```
 
+### Notifikasi Telegram
+
+Sistem menyediakan notifikasi Telegram untuk mengingatkan pengguna terkait deadline ticket.
+
+Notifikasi deadline terdiri dari:
+
+* **24H Reminder** — dikirim sekitar 24 jam sebelum deadline.
+* **1H Reminder** — dikirim sekitar 1 jam sebelum deadline.
+* **Overdue** — dikirim setelah ticket melewati deadline.
+
+Notifikasi dikirim kepada PIC ticket dan PM IT yang telah menghubungkan akun Telegram.
+
+#### Menjalankan Telegram Notification
+
+Fitur notifikasi Telegram membutuhkan dua background service:
+
+* `telegram-bot` — menangani proses menghubungkan akun Telegram.
+* `worker` — memeriksa deadline ticket dan mengirim reminder secara berkala.
+
+Kedua service tersebut disediakan melalui Docker Compose.
+
+Jalankan seluruh service dengan:
+
+```bash
+docker compose up --build
+```
+
+Atau jika container lainnya sudah berjalan dan hanya ingin menjalankan service Telegram:
+
+```bash
+docker compose up -d telegram-bot worker
+```
+
+Worker melakukan pengecekan deadline secara berkala setiap 5 menit.
+
+#### Konfigurasi Telegram
+
+Tambahkan token bot Telegram pada `.env`:
+
+```env
+TELEGRAM_BOT_TOKEN=<token_bot_telegram>
+```
+
+Token **tidak boleh di-commit ke repository**.
+
+#### Menghubungkan Akun Telegram
+
+1. Login ke aplikasi ticketing.
+2. Pilih fitur **Hubungkan Telegram**.
+3. Sistem menghasilkan link penghubungan.
+4. Buka link tersebut melalui Telegram.
+5. Bot akan menerima perintah `/start` dengan token penghubungan.
+6. Jika token valid, akun Telegram akan terhubung dengan akun ticketing.
+
+Token penghubungan memiliki masa berlaku **10 menit** dan hanya dapat digunakan satu kali.
+
+#### Mekanisme Reminder
+
+Reminder diproses oleh background worker berdasarkan `due_date` ticket.
+
+Setiap jenis reminder hanya dikirim **satu kali untuk setiap ticket** untuk mencegah notifikasi duplikat.
+
+Ticket dengan status `Done` tidak akan menerima reminder deadline.
+
+
 ## Instalasi & Menjalankan — Backend
 
 ```bash
