@@ -13,13 +13,13 @@ import { uploadAttachment } from '@/api/attachment'
 import { fetchApplications, fetchCompanies, type Application, type Company } from '@/api/master'
 import { getErrorMessage, getFieldErrors } from '@/api/client'
 import { PRIORITY_OPTIONS, TYPE_OPTIONS } from '@/constant/ticket'
+import { formatFileSize } from '@/utils/format'
 
 const MIN_DESCRIPTION = 10
 const MIN_TITLE = 5
 const MAX_FILES = 5
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 const ACCEPT = 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt'
-const fileUploadRef = ref<{ choose: () => void } | null>(null)
 
 const router = useRouter()
 const toast = useToast()
@@ -54,7 +54,7 @@ const submitting = ref(false)
 const submitError = ref('')
 
 const createdTicket = ref<Ticket | null>(null)
-const uploaded = new Set<File>()
+const uploaded = reactive(new Set<File>())
 const locked = computed(() => !!createdTicket.value)
 
 for (const key of Object.keys(errors) as (keyof typeof errors)[]) {
@@ -67,6 +67,10 @@ for (const key of Object.keys(errors) as (keyof typeof errors)[]) {
 function onFilesChange(e: { files: File[] }) {
   files.value = [...e.files]
   fileError.value = ''
+}
+
+function getFileObjectURL(file: File): string | undefined {
+  return (file as File & { objectURL?: string }).objectURL
 }
 
 onMounted(async () => {
@@ -336,7 +340,7 @@ async function onSubmit() {
             :accept="ACCEPT"
             :max-file-size="MAX_FILE_SIZE"
             :file-limit="MAX_FILES"
-            :disabled="locked"
+            :disabled="submitting"
             invalid-file-size-message="{0}: ukuran file maksimal {1}."
             invalid-file-limit-message="Maksimal {0} file."
             :pt="{
@@ -353,14 +357,47 @@ async function onSubmit() {
                   label="Pilih file"
                   icon="pi pi-paperclip"
                   size="small"
-                  :disabled="locked"
+                  :disabled="submitting"
                   @click="chooseCallback()"
                 />
               </div>
             </template>
 
-            <template #empty>
-              <div class="flex flex-col items-center gap-4 py-4 text-center">
+            <template #content="{ files, removeFileCallback }">
+              <ul v-if="files.length" class="divide-y divide-slate-100">
+                <li
+                  v-for="(file, index) in files"
+                  :key="file.name + file.size"
+                  class="flex items-center gap-3 py-2.5"
+                >
+                  <img
+                    v-if="getFileObjectURL(file) && file.type.startsWith('image/')"
+                    :src="getFileObjectURL(file)"
+                    :alt="file.name"
+                    class="h-10 w-10 shrink-0 rounded-md border border-slate-200 bg-white object-contain"
+                  />
+                  <i v-else class="pi pi-file text-xl text-slate-400"></i>
+
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium text-slate-800">{{ file.name }}</p>
+                    <p class="text-xs text-slate-500">{{ formatFileSize(file.size) }}</p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    icon="pi pi-times"
+                    severity="secondary"
+                    variant="text"
+                    rounded
+                    size="small"
+                    aria-label="Hapus file"
+                    :disabled="submitting || uploaded.has(file)"
+                    @click="removeFileCallback(index)"
+                  />
+                </li>
+              </ul>
+
+              <div v-else class="flex flex-col items-center gap-2 py-4 text-center">
                 <i class="pi pi-paperclip text-3xl text-slate-400"></i>
                 <p class="text-sm text-slate-500">Seret file ke sini untuk melampirkan</p>
               </div>
