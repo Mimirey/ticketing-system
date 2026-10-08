@@ -33,7 +33,7 @@ def get_ticket_report(
         .filter(
             Ticket.created_at >= start_datetime,
             Ticket.created_at <= end_datetime,
-            Ticket.is_deleted == false,
+            Ticket.is_deleted == False,
         )
     )
     if staff_ids:
