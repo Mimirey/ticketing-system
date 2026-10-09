@@ -480,11 +480,13 @@ const details = computed(() => {
               <CommentSection :ticket-id="ticket.id" />
             </TabPanel>
 
-            <AttachmentList
-              :ticket-id="ticket.id"
-              :reporter-id="ticket.reporter_id"
-              :readonly="isDone"
-            />
+            <TabPanel value="attachments">
+              <AttachmentList
+                :ticket-id="ticket.id"
+                :reporter-id="ticket.reporter_id"
+                :readonly="isDone"
+              />
+            </TabPanel>
 
             <TabPanel value="history">
               <HistoryTimeline
