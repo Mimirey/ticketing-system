@@ -12,7 +12,7 @@ export type Permission =
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   USER: ['ticket:create'],
-  ADMIN: ['ticket:create', 'report:view'],
+  ADMIN: ['ticket:create'],
   PM_IT: [
     'ticket:create',
     'ticket:assign',
