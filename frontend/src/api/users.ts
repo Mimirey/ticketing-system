@@ -74,7 +74,6 @@ export interface UserCreatePayload {
   username: string
   name: string
   email: string
-  password: string
   role_id: number
   telegram_chat_id: null
 }
@@ -85,4 +84,15 @@ export async function createUser(payload: UserCreatePayload): Promise<void> {
 
 export async function deleteUser(id: number): Promise<void> {
   await api.delete(`/users/${id}`)
+}
+
+export async function changePassword(payload: {
+  current_password: string
+  new_password: string
+}): Promise<void> {
+  await api.patch('/users/me/password', payload)
+}
+
+export async function resetUserPassword(id: number): Promise<void> {
+  await api.patch(`/users/${id}/reset-password`)
 }
