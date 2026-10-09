@@ -204,25 +204,6 @@ const doughnutOptions = {
               fluid
             />
           </div>
-
-          <div class="flex gap-2">
-            <Button
-              label="Pilih Semua"
-              size="small"
-              variant="outlined"
-              severity="secondary"
-              :disabled="loading || !staffOptions.length"
-              @click="selectAll"
-            />
-            <Button
-              label="Kosongkan"
-              size="small"
-              variant="text"
-              severity="secondary"
-              :disabled="loading || !selectedIds.length"
-              @click="clearAll"
-            />
-          </div>
         </div>
 
         <p v-if="!hasRange" class="mt-3 text-xs text-slate-500">
@@ -262,23 +243,6 @@ const doughnutOptions = {
         </section>
 
         <template v-else>
-          <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <div class="lg:col-span-2">
-                <h2 class="mb-3 text-sm font-semibold text-slate-800">Ticket per Staff</h2>
-                <div class="h-64">
-                  <Chart type="bar" :data="barData" :options="barOptions" class="h-full" />
-                </div>
-              </div>
-              <div class="lg:border-l lg:border-slate-100 lg:pl-6">
-                <h2 class="mb-3 text-sm font-semibold text-slate-800">Komposisi Status</h2>
-                <div class="h-64">
-                  <Chart type="doughnut" :data="doughnutData" :options="doughnutOptions" class="h-full" />
-                </div>
-              </div>
-            </div>
-          </section>
-
           <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-100 px-5 py-3">
               <h2 class="text-sm font-semibold text-slate-800">Rincian per Staff</h2>
@@ -332,6 +296,22 @@ const doughnutOptions = {
                 </template>
               </Column>
             </DataTable>
+          </section>
+          <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div class="lg:col-span-2">
+                <h2 class="mb-3 text-sm font-semibold text-slate-800">Ticket per Staff</h2>
+                <div class="h-64">
+                  <Chart type="bar" :data="barData" :options="barOptions" class="h-full" />
+                </div>
+              </div>
+              <div class="lg:border-l lg:border-slate-100 lg:pl-6">
+                <h2 class="mb-3 text-sm font-semibold text-slate-800">Komposisi Status</h2>
+                <div class="h-64">
+                  <Chart type="doughnut" :data="doughnutData" :options="doughnutOptions" class="h-full" />
+                </div>
+              </div>
+            </div>
           </section>
         </template>
       </template>
