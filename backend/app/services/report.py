@@ -40,8 +40,8 @@ def get_ticket_report(
         .outerjoin(User, User.id == Ticket.pic_id)
         .filter(
             Ticket.created_at >= start_datetime,
-            Ticket.created_at < end_datetime,
-            Ticket.is_deleted.is_(False),
+            Ticket.created_at <= end_datetime,
+            Ticket.is_deleted == False,
         )
     )
 
