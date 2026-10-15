@@ -129,6 +129,7 @@ def update_company(
     return company
 
 
+
 @router.delete("/{company_id}")
 def delete_company(
     company_id: int,
@@ -142,49 +143,41 @@ def delete_company(
     if not company:
         raise HTTPException(
             status_code=404,
-            detail="Company tidak ditemukan"
+            detail="Company tidak ditemukan",
         )
 
     in_use = db.query(Ticket).filter(
         Ticket.company_id == company_id,
-        Ticket.is_deleted == False
+        Ticket.is_deleted.is_(False),
     ).count()
 
     if in_use:
         raise HTTPException(
             status_code=409,
-            detail=f"Company masih dipakai oleh {in_use} ticket"
+            detail=f"Company masih dipakai oleh {in_use} ticket",
         )
 
-    app_count = db.query(Application).filter(
-        Application.company_id == company_id
-    ).count()
-
+    app_count = len(company.applications)
     company_name = company.name
 
+    # Ticket yang sudah dihapus tidak lagi terhubung ke company ini.
     db.query(Ticket).filter(
         Ticket.company_id == company_id,
-        Ticket.is_deleted == True
+        Ticket.is_deleted.is_(True),
     ).update(
-        {
-            Ticket.company_id: None,
-            Ticket.application_id: None
-        },
-        synchronize_session=False
+        {Ticket.company_id: None},
+        synchronize_session=False,
     )
-
-    extra = f" beserta {app_count} aplikasi" if app_count else ""
 
     log_activity(
         db,
         current_user.id,
         "DELETE_COMPANY",
-        f"{current_user.name} menghapus company {company_name}{extra}"
+        f"{current_user.name} menghapus company {company_name}"
+        + (f" beserta relasinya dengan {app_count} aplikasi" if app_count else ""),
     )
 
     db.delete(company)
     db.commit()
 
-    return {
-        "message": "Company berhasil dihapus"
-    }
+    return {"message": "Company berhasil dihapus"}
