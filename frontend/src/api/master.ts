@@ -7,9 +7,9 @@ export interface Company {
 
 export interface Application {
   id: number
-  company_id: number
   name: string
   description: string | null
+  companies: Company[]
 }
 
 export async function fetchCompanies(): Promise<Company[]> {
@@ -21,7 +21,12 @@ export async function fetchApplications(companyId: number): Promise<Application[
   const { data } = await api.get<Application[]>('/applications', {
     params: { company_id: companyId },
   })
-  return data.filter((a) => a.company_id === companyId)
+  return data.filter((a) => a.companies.some((c) => c.id === companyId))
+}
+
+export async function fetchAllApplications(): Promise<Application[]> {
+  const { data } = await api.get<Application[]>('/applications')
+  return data
 }
 
 export interface CompanyPayload {
@@ -43,14 +48,9 @@ export async function deleteCompany(id: number): Promise<void> {
 }
 
 export interface ApplicationPayload {
-  company_id: number
+  company_ids: number[]
   name: string
-  description: string
-}
-
-export async function fetchAllApplications(): Promise<Application[]> {
-  const { data } = await api.get<Application[]>('/applications')
-  return data
+  description: string | null
 }
 
 export async function createApplication(payload: ApplicationPayload): Promise<Application> {

@@ -9,6 +9,7 @@ import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
+import MultiSelect from 'primevue/multiselect'
 import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
@@ -42,41 +43,36 @@ const saveError = ref('')
 const deletingId = ref<number | null>(null)
 
 const form = reactive({
-  companyId: null as number | null,
+  companyIds: [] as number[],
   name: '',
   description: '',
 })
 
 const errors = reactive({
-  companyId: '',
+  companyIds: '',
   name: '',
   description: '',
 })
-
-const companyNames = computed(() => new Map(companies.value.map((c) => [c.id, c.name])))
-const companyName = (id: number) => companyNames.value.get(id) ?? '-'
 
 const filtered = computed(() => {
   const k = keyword.value.trim().toLowerCase()
 
   return applications.value
-    .filter((a) => !filterCompany.value || a.company_id === filterCompany.value)
+    .filter(
+      (a) => !filterCompany.value || a.companies.some((c) => c.id === filterCompany.value),
+    )
     .filter(
       (a) =>
         !k ||
         a.name.toLowerCase().includes(k) ||
         (a.description ?? '').toLowerCase().includes(k),
     )
-    .sort(
-      (a, b) =>
-        companyName(a.company_id).localeCompare(companyName(b.company_id), 'id') ||
-        a.name.localeCompare(b.name, 'id'),
-    )
+    .sort((a, b) => a.name.localeCompare(b.name, 'id'))
 })
 
 watch(
-  () => form.companyId,
-  () => (errors.companyId = ''),
+  () => form.companyIds.length,
+  () => (errors.companyIds = ''),
 )
 watch(
   () => form.name,
@@ -86,6 +82,13 @@ watch(
   () => form.description,
   () => (errors.description = ''),
 )
+
+function companySummary(list: Company[]) {
+  const names = list.map((c) => c.name)
+  return names.length <= 2
+    ? names.join(', ')
+    : `${names.slice(0, 2).join(', ')} +${names.length - 2}`
+}
 
 async function load() {
   loading.value = true
@@ -105,10 +108,10 @@ onMounted(load)
 
 function resetForm() {
   editing.value = null
-  form.companyId = null
+  form.companyIds = []
   form.name = ''
   form.description = ''
-  errors.companyId = ''
+  errors.companyIds = ''
   errors.name = ''
   errors.description = ''
   saveError.value = ''
@@ -116,14 +119,14 @@ function resetForm() {
 
 function openCreate() {
   resetForm()
-  form.companyId = filterCompany.value
+  if (filterCompany.value) form.companyIds = [filterCompany.value]
   dialogVisible.value = true
 }
 
 function openEdit(app: Application) {
   resetForm()
   editing.value = app
-  form.companyId = app.company_id
+  form.companyIds = app.companies.map((c) => c.id)
   form.name = app.name
   form.description = app.description ?? ''
   dialogVisible.value = true
@@ -132,24 +135,21 @@ function openEdit(app: Application) {
 function validate(): boolean {
   const name = form.name.trim()
 
-  errors.companyId = form.companyId ? '' : 'Company wajib dipilih'
+  errors.companyIds = form.companyIds.length ? '' : 'Pilih minimal satu company'
 
   if (!name) {
     errors.name = 'Nama aplikasi wajib diisi'
   } else if (
     applications.value.some(
-      (a) =>
-        a.id !== editing.value?.id &&
-        a.company_id === form.companyId &&
-        a.name.trim().toLowerCase() === name.toLowerCase(),
+      (a) => a.id !== editing.value?.id && a.name.trim().toLowerCase() === name.toLowerCase(),
     )
   ) {
-    errors.name = 'Nama aplikasi sudah ada di company ini'
+    errors.name = 'Nama aplikasi sudah terdaftar'
   } else {
     errors.name = ''
   }
 
-  return !errors.companyId && !errors.name
+  return !errors.companyIds && !errors.name
 }
 
 async function onSave() {
@@ -159,9 +159,9 @@ async function onSave() {
   saving.value = true
   try {
     const payload = {
-      company_id: form.companyId!,
+      company_ids: form.companyIds,
       name: form.name.trim(),
-      description: form.description.trim(),
+      description: form.description.trim() || null,
     }
     const isEdit = !!editing.value
 
@@ -179,8 +179,8 @@ async function onSave() {
     const fields = getFieldErrors(e)
     let applied = false
 
-    if (fields.company_id) {
-      errors.companyId = fields.company_id
+    if (fields.company_ids) {
+      errors.companyIds = fields.company_ids
       applied = true
     }
     if (fields.name) {
@@ -192,7 +192,12 @@ async function onSave() {
       applied = true
     }
 
-    if (!applied) saveError.value = getErrorMessage(e, 'Gagal menyimpan aplikasi')
+    if (!applied) {
+      const message = getErrorMessage(e, 'Gagal menyimpan aplikasi')
+      if (/nama/i.test(message)) errors.name = message
+      else if (/company/i.test(message)) errors.companyIds = message
+      else saveError.value = message
+    }
   } finally {
     saving.value = false
   }
@@ -201,7 +206,7 @@ async function onSave() {
 function onDelete(app: Application) {
   confirm.require({
     header: 'Hapus aplikasi?',
-    message: `"${app.name}" akan dihapus permanen. Pastikan aplikasi ini tidak lagi dipakai oleh ticket.`,
+    message: `"${app.name}" akan dihapus permanen beserta relasinya dengan ${app.companies.length} company.`,
     icon: 'pi pi-exclamation-triangle',
     rejectProps: { label: 'Batal', severity: 'secondary', variant: 'text', size: 'small' },
     acceptProps: { label: 'Hapus', severity: 'danger', size: 'small' },
@@ -212,13 +217,12 @@ function onDelete(app: Application) {
         toast.add({ severity: 'success', summary: 'Aplikasi dihapus', life: 3000 })
         await load()
       } catch (e) {
-        const status = getErrorStatus(e)
         toast.add({
           severity: 'error',
           summary: 'Gagal menghapus',
           detail:
-            status === 500 || status === 409
-              ? 'Aplikasi tidak bisa dihapus saat ini. Kemungkinan masih dipakai oleh ticket, atau ada kendala di server.'
+            getErrorStatus(e) === 500
+              ? 'Aplikasi tidak bisa dihapus saat ini karena ada kendala di server.'
               : getErrorMessage(e),
           life: 6000,
         })
@@ -236,7 +240,7 @@ function onDelete(app: Application) {
       <div>
         <h1 class="text-xl font-bold text-slate-800">Aplikasi</h1>
         <p class="mt-1 text-sm text-slate-500">
-          Kelola aplikasi di setiap company yang bisa dipilih saat membuat ticket
+          Kelola aplikasi dan company yang memakainya
         </p>
       </div>
 
@@ -298,7 +302,16 @@ function onDelete(app: Application) {
         <Column field="name" header="Nama Aplikasi" />
 
         <Column header="Company">
-          <template #body="{ data }">{{ companyName(data.company_id) }}</template>
+          <template #body="{ data }">
+            <span
+              v-if="data.companies.length"
+              class="text-slate-700"
+              :title="data.companies.map((c: Company) => c.name).join(', ')"
+            >
+              {{ companySummary(data.companies) }}
+            </span>
+            <span v-else class="text-slate-400">-</span>
+          </template>
         </Column>
 
         <Column header="Deskripsi">
@@ -358,28 +371,6 @@ function onDelete(app: Application) {
         </Message>
 
         <div class="flex flex-col gap-2">
-          <label for="app-company" class="text-sm font-medium text-slate-800">Company</label>
-          <Select
-            v-model="form.companyId"
-            input-id="app-company"
-            :options="companies"
-            option-label="name"
-            option-value="id"
-            placeholder="Pilih company"
-            filter
-            :disabled="saving || !!editing"
-            :invalid="!!errors.companyId"
-            fluid
-          />
-          <Message v-if="errors.companyId" severity="error" size="small" variant="simple">
-            {{ errors.companyId }}
-          </Message>
-          <p v-else-if="editing" class="text-xs text-slate-500">
-            Company tidak dapat diubah karena aplikasi mungkin sudah dipakai oleh ticket.
-          </p>
-        </div>
-
-        <div class="flex flex-col gap-2">
           <label for="app-name" class="text-sm font-medium text-slate-800">Nama Aplikasi</label>
           <InputText
             id="app-name"
@@ -392,6 +383,31 @@ function onDelete(app: Application) {
           <Message v-if="errors.name" severity="error" size="small" variant="simple">
             {{ errors.name }}
           </Message>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="app-companies" class="text-sm font-medium text-slate-800">Company</label>
+          <MultiSelect
+            v-model="form.companyIds"
+            input-id="app-companies"
+            :options="companies"
+            option-label="name"
+            option-value="id"
+            placeholder="Pilih company"
+            filter
+            filter-placeholder="Cari company"
+            :max-selected-labels="2"
+            selected-items-label="{0} company dipilih"
+            :invalid="!!errors.companyIds"
+            :disabled="saving"
+            fluid
+          />
+          <Message v-if="errors.companyIds" severity="error" size="small" variant="simple">
+            {{ errors.companyIds }}
+          </Message>
+          <p v-else class="text-xs text-slate-500">
+            Satu aplikasi bisa dipakai oleh beberapa company. Pilih minimal satu.
+          </p>
         </div>
 
         <div class="flex flex-col gap-2">

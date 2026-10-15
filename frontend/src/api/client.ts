@@ -104,6 +104,7 @@ const FIELD_LABELS: Record<string, string> = {
   email: 'Email',
   username: 'Username',
   role_id: 'Role',
+  company_ids: 'Company',
 }
 
 interface ValidationIssue {

@@ -19,31 +19,32 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "company_applications",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column(
-            "company_id",
-            sa.Integer(),
-            sa.ForeignKey("companies.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.Column(
-            "application_id",
-            sa.Integer(),
-            sa.ForeignKey("applications.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.UniqueConstraint(
-            "company_id",
-            "application_id",
-            name="uq_company_application",
-        ),
-    )
-
-    # Pulihkan relasi dari kolom lama jika kolom tersebut masih ada.
     conn = op.get_bind()
     inspector = sa.inspect(conn)
+
+    if "company_applications" not in inspector.get_table_names():
+        op.create_table(
+            "company_applications",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column(
+                "company_id",
+                sa.Integer(),
+                sa.ForeignKey("companies.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
+            sa.Column(
+                "application_id",
+                sa.Integer(),
+                sa.ForeignKey("applications.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
+            sa.UniqueConstraint(
+                "company_id",
+                "application_id",
+                name="uq_company_application",
+            ),
+        )
+
     columns = {
         col["name"]
         for col in inspector.get_columns("applications")
