@@ -74,14 +74,6 @@ const selectedStaff = computed(() =>
   staffOptions.value.filter((s) => selectedIds.value.includes(s.staff_id)),
 )
 
-function selectAll() {
-  selectedIds.value = staffOptions.value.map((s) => s.staff_id)
-}
-
-function clearAll() {
-  selectedIds.value = []
-}
-
 const count = (s: StaffRow, k: TicketStatus) => s.by_status?.[k] ?? 0
 
 const totals = computed<StatusCounts>(() => {

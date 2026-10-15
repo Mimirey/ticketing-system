@@ -16,6 +16,7 @@ import {
   fetchApplications,
   fetchCompanies,
   updateCompany,
+  type Application,
   type Company,
 } from '@/api/master'
 import { getErrorMessage, getErrorStatus, getFieldErrors } from '@/api/client'
@@ -132,18 +133,28 @@ async function onSave() {
 }
 
 async function onDelete(company: Company) {
-  let appCount = 0
+  let apps: Application[] = []
   try {
-    appCount = (await fetchApplications(company.id)).length
+    apps = await fetchApplications(company.id)
   } catch {
-    appCount = 0
+    apps = []
   }
 
-  const extra = appCount ? ` ${appCount} aplikasi di dalamnya juga akan ikut terhapus.` : ''
+  const orphaned = apps.filter((a) => a.companies.length === 1).length
+  const parts = [`"${company.name}" akan dihapus permanen.`]
+
+  if (apps.length) {
+    parts.push(
+      `Relasinya dengan ${apps.length} aplikasi ikut dihapus, aplikasinya sendiri tetap ada.`,
+    )
+  }
+  if (orphaned) {
+    parts.push(`${orphaned} aplikasi tidak akan punya company lagi.`)
+  }
 
   confirm.require({
     header: 'Hapus company?',
-    message: `"${company.name}" akan dihapus permanen.${extra}`,
+    message: parts.join(' '),
     icon: 'pi pi-exclamation-triangle',
     rejectProps: { label: 'Batal', severity: 'secondary', variant: 'text', size: 'small' },
     acceptProps: { label: 'Hapus', severity: 'danger', size: 'small' },
@@ -159,8 +170,8 @@ async function onDelete(company: Company) {
           severity: 'error',
           summary: 'Gagal menghapus',
           detail:
-            status === 500 || status === 409
-              ? 'Company tidak bisa dihapus karena masih dipakai oleh ticket.'
+            status === 500
+              ? 'Company tidak bisa dihapus saat ini karena ada kendala di server.'
               : getErrorMessage(e),
           life: 6000,
         })
