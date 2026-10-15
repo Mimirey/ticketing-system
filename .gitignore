@@ -1,10 +1,14 @@
 .env
 uploads/*
 !uploads/.gitkeep
+
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 .venv/
 venv/
+
+node_modules/
+dist/
 *.db
