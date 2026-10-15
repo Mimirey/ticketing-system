@@ -16,6 +16,6 @@ class Company(Base):
     )
     applications = relationship(
         "Application",
-        back_populates="company",
-        cascade="all, delete-orphan"
+        secondary="company_applications",
+        back_populates="companies"
     )
