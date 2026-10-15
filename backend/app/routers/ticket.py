@@ -41,30 +41,59 @@ ALLOWED_TRANSITIONS = {
     response_model=TicketResponse,
     status_code=status.HTTP_201_CREATED
 )
+
+@router.post(
+    "",
+    response_model=TicketResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_ticket(
     data: TicketCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    company = db.query(Company).filter(
-        Company.id == data.company_id
-    ).first()
+    # Validasi company jika dipilih
+    company = None
+    if data.company_id is not None:
+        company = db.query(Company).filter(
+            Company.id == data.company_id
+        ).first()
 
-    if not company:
-        raise HTTPException(
-            status_code=404,
-            detail="Company tidak ditemukan"
-        )
+        if not company:
+            raise HTTPException(
+                status_code=404,
+                detail="Company tidak ditemukan",
+            )
 
-    application = db.query(Application).filter(
-        Application.id == data.application_id,
-        Application.company_id == data.company_id
-    ).first()
+    # Validasi application jika dipilih
+    application = None
+    if data.application_id is not None:
+        application = db.query(Application).filter(
+            Application.id == data.application_id
+        ).first()
 
-    if not application:
+        if not application:
+            raise HTTPException(
+                status_code=404,
+                detail="Application tidak ditemukan",
+            )
+
+    # Jika keduanya dipilih, pastikan relasinya cocok
+    if company and application:
+        if not any(
+            linked_company.id == company.id
+            for linked_company in application.companies
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Application tidak terhubung dengan company yang dipilih",
+            )
+
+    # Hindari ticket dengan application tanpa company
+    if application and not company:
         raise HTTPException(
             status_code=400,
-            detail="Application tidak sesuai dengan company"
+            detail="Company harus dipilih jika Application dipilih",
         )
 
     ticket = Ticket(
@@ -83,8 +112,8 @@ def create_ticket(
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
-    ticket.ticket_number = generate_ticket_number(ticket.id)
 
+    ticket.ticket_number = generate_ticket_number(ticket.id)
     db.commit()
     db.refresh(ticket)
 
@@ -94,8 +123,9 @@ def create_ticket(
         current_user.id,
         "status",
         None,
-        TicketStatus.OPEN.value
+        TicketStatus.OPEN.value,
     )
+
     pm_users = (
         db.query(User)
         .filter(User.is_deleted == False)
@@ -116,7 +146,7 @@ def create_ticket(
         db,
         current_user.id,
         "CREATE_TICKET",
-        f"{current_user.name} membuat ticket {ticket.ticket_number}"
+        f"{current_user.name} membuat ticket {ticket.ticket_number}",
     )
 
     db.commit()
@@ -127,6 +157,7 @@ def create_ticket(
     ticket.remaining_hours = sla["remaining_hours"]
 
     return ticket
+
 
 @router.get("", response_model=List[TicketResponse])
 def list_tickets(
