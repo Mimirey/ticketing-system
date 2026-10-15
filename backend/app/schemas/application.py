@@ -1,6 +1,4 @@
-
 from pydantic import BaseModel, Field
-
 
 class ApplicationCreate(BaseModel):
     company_ids: list[int] = Field(min_length=1)
